@@ -133,6 +133,10 @@ view model =
                 , text "This is not the official version of 2048! It is an Elm implementation of Gabriele Cirulli's "
                 , a [ href "https://github.com/gabrielecirulli/2048" ]
                     [ text "2048 game" ]
+                , text ". You can find the code for this Elm implementation here: "
+                , a [ href "https://github.com/stepheneb/elm-2048" ]
+                    [ text "github.com/stepheneb/elm-2048" ]
+                , text "."
                 ]
             , hr []
                 []
