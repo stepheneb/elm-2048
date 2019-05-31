@@ -10,12 +10,30 @@ import Html.Attributes exposing (class, href, src, target)
 
 
 type alias Model =
-    {}
+    { tile : Tile
+    }
+
+
+type alias Tile =
+    { column : Int
+    , row : Int
+    , value : Int
+    }
 
 
 init : flags -> ( Model, Cmd Msg )
 init _ =
-    ( {}, Cmd.none )
+    ( initialModel, Cmd.none )
+
+
+initialModel : Model
+initialModel =
+    { tile = newTile }
+
+
+newTile : Tile
+newTile =
+    { column = 2, row = 2, value = 2 }
 
 
 
@@ -45,7 +63,7 @@ view model =
             , div [ class "game-container" ]
                 [ gameMessage
                 , gridContainer
-                , tileContainer
+                , tileContainer model.tile
                 ]
             , gameExplanation
             , divider
@@ -144,10 +162,28 @@ gridContainer =
         ]
 
 
-tileContainer : Html Msg
-tileContainer =
+tileContainer : Tile -> Html Msg
+tileContainer tile =
     div [ class "tile-container" ]
-        []
+        [ div
+            [ class <| tileClassStr tile ]
+            [ div [ class "tile-inner" ]
+                [ text <| String.fromInt tile.value ]
+            ]
+        ]
+
+
+tileClassStr : Tile -> String
+tileClassStr tile =
+    String.join " "
+        [ "tile"
+        , "tile-new"
+        , "tile-" ++ String.fromInt tile.value
+        , "tile-position-"
+            ++ String.fromInt tile.column
+            ++ "-"
+            ++ String.fromInt tile.row
+        ]
 
 
 gameExplanation : Html none
