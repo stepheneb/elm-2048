@@ -1,8 +1,8 @@
 {
-  "main.css": "/elm-2048/static/css/main.f4bd67f9.chunk.css",
-  "main.js": "/elm-2048/static/js/main.c8d43f6f.chunk.js",
-  "main.css.map": "/elm-2048/static/css/main.f4bd67f9.chunk.css.map",
-  "main.js.map": "/elm-2048/static/js/main.c8d43f6f.chunk.js.map",
+  "main.css": "/elm-2048/static/css/main.1ab92e89.chunk.css",
+  "main.js": "/elm-2048/static/js/main.ca2f6900.chunk.js",
+  "main.css.map": "/elm-2048/static/css/main.1ab92e89.chunk.css.map",
+  "main.js.map": "/elm-2048/static/js/main.ca2f6900.chunk.js.map",
   "runtime~main.js": "/elm-2048/static/js/runtime~main.f1632f6e.js",
   "runtime~main.js.map": "/elm-2048/static/js/runtime~main.f1632f6e.js.map",
   "vendors~main.js": "/elm-2048/static/js/vendors~main.3ca81432.chunk.js",
