@@ -1,8 +1,9 @@
 module Main exposing (Model, Msg(..), init, main, update, view)
 
 import Browser
-import Html exposing (Html, a, div, h1, hr, img, p, strong, text)
+import Html exposing (Html, a, button, div, h1, hr, img, p, strong, text)
 import Html.Attributes exposing (class, href, src, target)
+import Html.Events exposing (onClick)
 
 
 
@@ -42,11 +43,57 @@ newTile =
 
 type Msg
     = NoOp
+    | ArrowUp
+    | ArrowDown
+    | ArrowRight
+    | ArrowLeft
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    ( model, Cmd.none )
+    case msg of
+        NoOp ->
+            ( model, Cmd.none )
+
+        ArrowUp ->
+            ( { model | tile = moveUp model.tile }
+            , Cmd.none
+            )
+
+        ArrowDown ->
+            ( { model | tile = moveDown model.tile }
+            , Cmd.none
+            )
+
+        ArrowRight ->
+            ( { model | tile = moveRight model.tile }
+            , Cmd.none
+            )
+
+        ArrowLeft ->
+            ( { model | tile = moveLeft model.tile }
+            , Cmd.none
+            )
+
+
+moveUp : Tile -> Tile
+moveUp tile =
+    { tile | row = clamp 1 4 (tile.row - 1) }
+
+
+moveDown : Tile -> Tile
+moveDown tile =
+    { tile | row = clamp 1 4 (tile.row + 1) }
+
+
+moveLeft : Tile -> Tile
+moveLeft tile =
+    { tile | column = clamp 1 4 (tile.column - 1) }
+
+
+moveRight : Tile -> Tile
+moveRight tile =
+    { tile | column = clamp 1 4 (tile.column + 1) }
 
 
 
@@ -65,6 +112,7 @@ view model =
                 , gridContainer
                 , tileContainer model.tile
                 ]
+            , arrowButtons
             , gameExplanation
             , divider
             , gameNotes
@@ -79,7 +127,7 @@ gameHeader : Html Msg
 gameHeader =
     div [ class "heading" ]
         [ h1 [ class "title" ]
-            [ text "2048" ]
+            [ text "Elm 2048" ]
         , div [ class "scores-container" ]
             [ div [ class "score-container" ]
                 [ text "0" ]
@@ -119,46 +167,38 @@ gameMessage =
 gridContainer : Html none
 gridContainer =
     div [ class "grid-container" ]
-        [ div [ class "grid-row" ]
-            [ div [ class "grid-cell" ]
-                []
-            , div [ class "grid-cell" ]
-                []
-            , div [ class "grid-cell" ]
-                []
-            , div [ class "grid-cell" ]
-                []
-            ]
-        , div [ class "grid-row" ]
-            [ div [ class "grid-cell" ]
-                []
-            , div [ class "grid-cell" ]
-                []
-            , div [ class "grid-cell" ]
-                []
-            , div [ class "grid-cell" ]
-                []
-            ]
-        , div [ class "grid-row" ]
-            [ div [ class "grid-cell" ]
-                []
-            , div [ class "grid-cell" ]
-                []
-            , div [ class "grid-cell" ]
-                []
-            , div [ class "grid-cell" ]
-                []
-            ]
-        , div [ class "grid-row" ]
-            [ div [ class "grid-cell" ]
-                []
-            , div [ class "grid-cell" ]
-                []
-            , div [ class "grid-cell" ]
-                []
-            , div [ class "grid-cell" ]
-                []
-            ]
+        [ gridRow
+        , gridRow
+        , gridRow
+        , gridRow
+        ]
+
+
+gridRow : Html none
+gridRow =
+    div [ class "grid-row" ]
+        [ div [ class "grid-cell" ]
+            []
+        , div [ class "grid-cell" ]
+            []
+        , div [ class "grid-cell" ]
+            []
+        , div [ class "grid-cell" ]
+            []
+        ]
+
+
+arrowButtons : Html Msg
+arrowButtons =
+    div []
+        [ button [ onClick ArrowLeft ]
+            [ text "ArrowLeft" ]
+        , button [ onClick ArrowRight ]
+            [ text "ArrowRight" ]
+        , button [ onClick ArrowUp ]
+            [ text "ArrowUp" ]
+        , button [ onClick ArrowDown ]
+            [ text "ArrowDown" ]
         ]
 
 
