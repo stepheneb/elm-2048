@@ -1,0 +1,18 @@
+{
+  "name": "elm-2048",
+  "version": "1.0.0",
+  "description": "ELm clone of github.com/gabrielecirulli/2048",
+  "main": "index.js",
+  "repository": "https://github.com/stepheneb/elm-2048",
+  "author": "Stephen Bannasch",
+  "license": "MIT",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build-css": "node-sass-chokidar src/ -o src/",
+    "watch-css": "npm run build-css && node-sass-chokidar src/ -o src/ --watch --recursive",
+    "build": "npm run build-css && elm-app build"
+  },
+  "dependencies": {
+    "node-sass-chokidar": "^1.3.5"
+  }
+}
