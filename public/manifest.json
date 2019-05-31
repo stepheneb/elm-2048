@@ -1,10 +1,10 @@
 {
-  "short_name": "Elm App",
-  "name": "Create Elm App Sample",
+  "short_name": "Elm 2048",
+  "name": "Elm 2048",
   "icons": [
     {
       "src": "favicon.ico",
-      "sizes": "192x192",
+      "sizes": "32x32",
       "type": "image/png"
     }
   ],
