@@ -1,12 +1,12 @@
 {
-  "main.css": "/static/css/main.b398c490.chunk.css",
-  "main.js": "/static/js/main.ef05ed4e.chunk.js",
-  "main.css.map": "/static/css/main.b398c490.chunk.css.map",
-  "main.js.map": "/static/js/main.ef05ed4e.chunk.js.map",
-  "runtime~main.js": "/static/js/runtime~main.d53d57e4.js",
-  "runtime~main.js.map": "/static/js/runtime~main.d53d57e4.js.map",
-  "vendors~main.js": "/static/js/vendors~main.3ca81432.chunk.js",
-  "vendors~main.js.map": "/static/js/vendors~main.3ca81432.chunk.js.map",
-  "index.html": "/index.html",
-  "static/media/main.css": "/static/media/ClearSans-Regular-webfont.207557cd.eot"
+  "main.css": "/elm-2048/static/css/main.f4bd67f9.chunk.css",
+  "main.js": "/elm-2048/static/js/main.33d2e84c.chunk.js",
+  "main.css.map": "/elm-2048/static/css/main.f4bd67f9.chunk.css.map",
+  "main.js.map": "/elm-2048/static/js/main.33d2e84c.chunk.js.map",
+  "runtime~main.js": "/elm-2048/static/js/runtime~main.f1632f6e.js",
+  "runtime~main.js.map": "/elm-2048/static/js/runtime~main.f1632f6e.js.map",
+  "vendors~main.js": "/elm-2048/static/js/vendors~main.3ca81432.chunk.js",
+  "vendors~main.js.map": "/elm-2048/static/js/vendors~main.3ca81432.chunk.js.map",
+  "index.html": "/elm-2048/index.html",
+  "static/media/main.css": "/elm-2048/static/media/ClearSans-Regular-webfont.207557cd.eot"
 }
