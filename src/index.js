@@ -7,3 +7,9 @@ Elm.Main.init({
 });
 
 registerServiceWorker();
+
+window.addEventListener("keydown", event => {
+  if(event.key.includes("Arrow")){
+    event.preventDefault()
+  }
+})
