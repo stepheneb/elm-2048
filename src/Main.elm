@@ -187,7 +187,6 @@ view model =
                 , gridContainer
                 , tileContainer model.tiles
                 ]
-            , arrowButtons
             , gameExplanation
             , divider
             , gameNotes
@@ -263,20 +262,6 @@ gridRow =
             []
         , div [ class "grid-cell" ]
             []
-        ]
-
-
-arrowButtons : Html Msg
-arrowButtons =
-    div []
-        [ button [ onClick MoveLeft ]
-            [ text "Move Left" ]
-        , button [ onClick MoveRight ]
-            [ text "Move Right" ]
-        , button [ onClick MoveUp ]
-            [ text "Move Up" ]
-        , button [ onClick MoveDown ]
-            [ text "Move Down" ]
         ]
 
 
