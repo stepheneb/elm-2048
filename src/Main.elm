@@ -15,7 +15,7 @@ import Url
 
 
 type alias Model =
-    { tile : Tile
+    { tiles : List Tile
     , key : Nav.Key
     , url : Url.Url
     }
@@ -35,12 +35,12 @@ init flags url key =
 
 initialModel : Url.Url -> Nav.Key -> Model
 initialModel url key =
-    { tile = newTile, url = url, key = key }
+    { tiles = [ newTile ], url = url, key = key }
 
 
 newTile : Tile
 newTile =
-    { column = 2, row = 2, value = 2 }
+    { column = 1, row = 2, value = 2 }
 
 
 
@@ -64,22 +64,22 @@ update msg model =
             ( model, Cmd.none )
 
         MoveUp ->
-            ( { model | tile = moveUp model.tile }
+            ( { model | tiles = moveUp model.tiles }
             , Cmd.none
             )
 
         MoveDown ->
-            ( { model | tile = moveDown model.tile }
+            ( { model | tiles = moveDown model.tiles }
             , Cmd.none
             )
 
         MoveRight ->
-            ( { model | tile = moveRight model.tile }
+            ( { model | tiles = moveRight model.tiles }
             , Cmd.none
             )
 
         MoveLeft ->
-            ( { model | tile = moveLeft model.tile }
+            ( { model | tiles = moveLeft model.tiles }
             , Cmd.none
             )
 
@@ -97,24 +97,24 @@ update msg model =
             )
 
 
-moveUp : Tile -> Tile
-moveUp tile =
-    { tile | row = clamp 1 4 (tile.row - 1) }
+moveUp : List Tile -> List Tile
+moveUp tiles =
+    List.map (\t -> { t | row = clamp 1 4 (t.row - 1) }) tiles
 
 
-moveDown : Tile -> Tile
-moveDown tile =
-    { tile | row = clamp 1 4 (tile.row + 1) }
+moveDown : List Tile -> List Tile
+moveDown tiles =
+    List.map (\t -> { t | row = clamp 1 4 (t.row + 1) }) tiles
 
 
-moveLeft : Tile -> Tile
-moveLeft tile =
-    { tile | column = clamp 1 4 (tile.column - 1) }
+moveLeft : List Tile -> List Tile
+moveLeft tiles =
+    List.map (\t -> { t | column = clamp 1 4 (t.column - 1) }) tiles
 
 
-moveRight : Tile -> Tile
-moveRight tile =
-    { tile | column = clamp 1 4 (tile.column + 1) }
+moveRight : List Tile -> List Tile
+moveRight tiles =
+    List.map (\t -> { t | column = clamp 1 4 (t.column + 1) }) tiles
 
 
 
@@ -164,7 +164,7 @@ view model =
             , div [ class "game-container" ]
                 [ gameMessage
                 , gridContainer
-                , tileContainer model.tile
+                , tileContainer model.tiles
                 ]
             , arrowButtons
             , gameExplanation
@@ -256,27 +256,36 @@ arrowButtons =
         ]
 
 
-tileContainer : Tile -> Html Msg
-tileContainer tile =
+tileContainer : List Tile -> Html Msg
+tileContainer tiles =
     div [ class "tile-container" ]
-        [ div
-            [ class <| tileClassStr tile ]
-            [ div [ class "tile-inner" ]
-                [ text <| String.fromInt tile.value ]
-            ]
+        (listOfTiles tiles)
+
+
+listOfTiles : List Tile -> List (Html Msg)
+listOfTiles tiles =
+    List.map (\t -> singleTile t) tiles
+
+
+singleTile : Tile -> Html Msg
+singleTile aTile =
+    div
+        [ class <| tileClassStr aTile ]
+        [ div [ class "tile-inner" ]
+            [ text <| String.fromInt aTile.value ]
         ]
 
 
 tileClassStr : Tile -> String
-tileClassStr tile =
+tileClassStr aTile =
     String.join " "
         [ "tile"
         , "tile-new"
-        , "tile-" ++ String.fromInt tile.value
+        , "tile-" ++ String.fromInt aTile.value
         , "tile-position-"
-            ++ String.fromInt tile.column
+            ++ String.fromInt aTile.column
             ++ "-"
-            ++ String.fromInt tile.row
+            ++ String.fromInt aTile.row
         ]
 
 
