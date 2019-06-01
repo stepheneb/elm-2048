@@ -1,9 +1,13 @@
 module Main exposing (Model, Msg(..), init, main, update, view)
 
 import Browser
-import Html exposing (Html, a, button, div, h1, hr, img, p, strong, text)
-import Html.Attributes exposing (class, href, src, target)
-import Html.Events exposing (onClick)
+import Browser.Events as Events
+import Browser.Navigation as Nav
+import Html exposing (Html, a, button, div, form, h1, hr, img, p, strong, text)
+import Html.Attributes exposing (class, href, id, src, target)
+import Html.Events exposing (custom, on, onClick)
+import Json.Decode as Json
+import Url
 
 
 
@@ -12,6 +16,8 @@ import Html.Events exposing (onClick)
 
 type alias Model =
     { tile : Tile
+    , key : Nav.Key
+    , url : Url.Url
     }
 
 
@@ -22,14 +28,14 @@ type alias Tile =
     }
 
 
-init : flags -> ( Model, Cmd Msg )
-init _ =
-    ( initialModel, Cmd.none )
+init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
+init flags url key =
+    ( initialModel url key, Cmd.none )
 
 
-initialModel : Model
-initialModel =
-    { tile = newTile }
+initialModel : Url.Url -> Nav.Key -> Model
+initialModel url key =
+    { tile = newTile, url = url, key = key }
 
 
 newTile : Tile
@@ -43,10 +49,12 @@ newTile =
 
 type Msg
     = NoOp
-    | ArrowUp
-    | ArrowDown
-    | ArrowRight
-    | ArrowLeft
+    | MoveUp
+    | MoveDown
+    | MoveRight
+    | MoveLeft
+    | LinkClicked Browser.UrlRequest
+    | UrlChanged Url.Url
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -55,23 +63,36 @@ update msg model =
         NoOp ->
             ( model, Cmd.none )
 
-        ArrowUp ->
+        MoveUp ->
             ( { model | tile = moveUp model.tile }
             , Cmd.none
             )
 
-        ArrowDown ->
+        MoveDown ->
             ( { model | tile = moveDown model.tile }
             , Cmd.none
             )
 
-        ArrowRight ->
+        MoveRight ->
             ( { model | tile = moveRight model.tile }
             , Cmd.none
             )
 
-        ArrowLeft ->
+        MoveLeft ->
             ( { model | tile = moveLeft model.tile }
+            , Cmd.none
+            )
+
+        LinkClicked urlRequest ->
+            case urlRequest of
+                Browser.Internal url ->
+                    ( model, Nav.pushUrl model.key (Url.toString url) )
+
+                Browser.External href ->
+                    ( model, Nav.load href )
+
+        UrlChanged url ->
+            ( { model | url = url }
             , Cmd.none
             )
 
@@ -94,6 +115,39 @@ moveLeft tile =
 moveRight : Tile -> Tile
 moveRight tile =
     { tile | column = clamp 1 4 (tile.column + 1) }
+
+
+
+--- SUBSCRIPTIONS
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    Events.onKeyDown keyDecoder
+
+
+keyDecoder : Json.Decoder Msg
+keyDecoder =
+    Json.map toDirection (Json.field "key" Json.string)
+
+
+toDirection : String -> Msg
+toDirection str =
+    case str of
+        "ArrowUp" ->
+            MoveUp
+
+        "ArrowDown" ->
+            MoveDown
+
+        "ArrowRight" ->
+            MoveRight
+
+        "ArrowLeft" ->
+            MoveLeft
+
+        _ ->
+            NoOp
 
 
 
@@ -191,14 +245,14 @@ gridRow =
 arrowButtons : Html Msg
 arrowButtons =
     div []
-        [ button [ onClick ArrowLeft ]
-            [ text "ArrowLeft" ]
-        , button [ onClick ArrowRight ]
-            [ text "ArrowRight" ]
-        , button [ onClick ArrowUp ]
-            [ text "ArrowUp" ]
-        , button [ onClick ArrowDown ]
-            [ text "ArrowDown" ]
+        [ button [ onClick MoveLeft ]
+            [ text "Move Left" ]
+        , button [ onClick MoveRight ]
+            [ text "Move Right" ]
+        , button [ onClick MoveUp ]
+            [ text "Move Up" ]
+        , button [ onClick MoveDown ]
+            [ text "Move Down" ]
         ]
 
 
@@ -282,9 +336,11 @@ divider =
 
 main : Program () Model Msg
 main =
-    Browser.document
+    Browser.application
         { init = init
         , view = view
         , update = update
-        , subscriptions = always Sub.none
+        , subscriptions = subscriptions
+        , onUrlChange = UrlChanged
+        , onUrlRequest = LinkClicked
         }
