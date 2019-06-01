@@ -7,6 +7,7 @@ import Html exposing (Html, a, button, div, form, h1, hr, img, p, strong, text)
 import Html.Attributes exposing (class, href, id, src, target)
 import Html.Events exposing (custom, on, onClick)
 import Json.Decode as Json
+import Random
 import Url
 
 
@@ -22,25 +23,33 @@ type alias Model =
 
 
 type alias Tile =
-    { column : Int
+    { value : Int
+    , column : Int
     , row : Int
-    , value : Int
     }
 
 
 init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
-    ( initialModel url key, Cmd.none )
+    ( initialModel url key, addTile )
 
 
 initialModel : Url.Url -> Nav.Key -> Model
 initialModel url key =
-    { tiles = [ newTile ], url = url, key = key }
+    { tiles = [], url = url, key = key }
 
 
-newTile : Tile
-newTile =
-    { column = 1, row = 2, value = 2 }
+addTile : Cmd Msg
+addTile =
+    Random.generate AddTile tileGenerator
+
+
+tileGenerator : Random.Generator Tile
+tileGenerator =
+    Random.map2
+        (\column row -> Tile 2 column row)
+        (Random.int 1 4)
+        (Random.int 1 4)
 
 
 
@@ -49,6 +58,8 @@ newTile =
 
 type Msg
     = NoOp
+    | NewGame
+    | AddTile Tile
     | MoveUp
     | MoveDown
     | MoveRight
@@ -62,6 +73,16 @@ update msg model =
     case msg of
         NoOp ->
             ( model, Cmd.none )
+
+        NewGame ->
+            ( { model | tiles = [] }
+            , addTile
+            )
+
+        AddTile tile ->
+            ( { model | tiles = [ tile ] }
+            , Cmd.none
+            )
 
         MoveUp ->
             ( { model | tiles = moveUp model.tiles }
@@ -199,7 +220,10 @@ aboveGame =
             , strong []
                 [ text "2048 tile!" ]
             ]
-        , a [ class "restart-button" ]
+        , button
+            [ class "restart-button"
+            , onClick NewGame
+            ]
             [ text "New Game" ]
         ]
 
