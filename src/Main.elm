@@ -120,22 +120,42 @@ update msg model =
 
 moveUp : List Tile -> List Tile
 moveUp tiles =
-    List.map (\t -> { t | row = clamp 1 4 (t.row - 1) }) tiles
+    List.map (\t -> { t | row = clamp 1 4 (t.row - spacesUp t) }) tiles
+
+
+spacesUp : Tile -> Int
+spacesUp tile =
+    tile.row - 1
 
 
 moveDown : List Tile -> List Tile
 moveDown tiles =
-    List.map (\t -> { t | row = clamp 1 4 (t.row + 1) }) tiles
+    List.map (\t -> { t | row = clamp 1 4 (t.row + spacesDown t) }) tiles
+
+
+spacesDown : Tile -> Int
+spacesDown tile =
+    4 - tile.row
 
 
 moveLeft : List Tile -> List Tile
 moveLeft tiles =
-    List.map (\t -> { t | column = clamp 1 4 (t.column - 1) }) tiles
+    List.map (\t -> { t | column = clamp 1 4 (t.column - spacesLeft t) }) tiles
+
+
+spacesLeft : Tile -> Int
+spacesLeft tile =
+    tile.column - 1
 
 
 moveRight : List Tile -> List Tile
 moveRight tiles =
-    List.map (\t -> { t | column = clamp 1 4 (t.column + 1) }) tiles
+    List.map (\t -> { t | column = clamp 1 4 (t.column + spacesRight t) }) tiles
+
+
+spacesRight : Tile -> Int
+spacesRight tile =
+    4 - tile.column
 
 
 
