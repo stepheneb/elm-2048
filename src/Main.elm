@@ -1,5 +1,6 @@
 module Main exposing (Model, Msg(..), init, main, update, view)
 
+import Array
 import Browser
 import Browser.Events as Events
 import Browser.Navigation as Nav
@@ -8,6 +9,7 @@ import Html.Attributes exposing (class, href, id, src, target)
 import Html.Events exposing (custom, on, onClick)
 import Json.Decode as Json
 import Random
+import Set
 import Url
 
 
@@ -22,34 +24,76 @@ type alias Model =
     }
 
 
+maximumNumberOfTiles : Int
+maximumNumberOfTiles =
+    16
+
+
 type alias Tile =
     { value : Int
-    , column : Int
     , row : Int
+    , col : Int
+    , index : Int
+    , new : Bool
     }
 
 
 init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
-    ( initialModel url key, addTile )
+    ( initialModel url key, generateNewTile [] )
 
 
 initialModel : Url.Url -> Nav.Key -> Model
 initialModel url key =
-    { tiles = [], url = url, key = key }
+    { tiles = []
+    , url = url
+    , key = key
+    }
 
 
-addTile : Cmd Msg
-addTile =
-    Random.generate AddTile tileGenerator
+
+--- Tile generation
 
 
-tileGenerator : Random.Generator Tile
-tileGenerator =
-    Random.map2
-        (\column row -> Tile 2 column row)
-        (Random.int 1 4)
-        (Random.int 1 4)
+generateNewTile : List Tile -> Cmd Msg
+generateNewTile tiles =
+    if List.length tiles < maximumNumberOfTiles then
+        sortTilesByRowsCols tiles
+            |> emptyLocationIndices
+            |> newTileInEmptyLocation
+
+    else
+        Cmd.none
+
+
+newTileInEmptyLocation : Array.Array Int -> Cmd Msg
+newTileInEmptyLocation locationIndices =
+    Random.generate AddTile (tileGenerator locationIndices)
+
+
+tileGenerator : Array.Array Int -> Random.Generator Tile
+tileGenerator locationIndices =
+    let
+        _ =
+            Debug.log ("tileGenerator: " ++ (String.fromInt <| Array.length locationIndices)) 1
+    in
+    Random.map
+        (\indx ->
+            Array.get (indx - 1) locationIndices
+                |> Maybe.withDefault 1
+                |> tileFromLocationIndex
+        )
+        (Random.int 1 (Array.length locationIndices))
+
+
+tileFromLocationIndex : Int -> Tile
+tileFromLocationIndex indx =
+    { value = 2
+    , row = (indx - 1) // 4 + 1
+    , col = remainderBy 4 (indx - 1) + 1
+    , index = indx
+    , new = True
+    }
 
 
 
@@ -76,32 +120,48 @@ update msg model =
 
         NewGame ->
             ( { model | tiles = [] }
-            , addTile
+            , generateNewTile []
             )
 
         AddTile tile ->
-            ( { model | tiles = [ tile ] }
+            ( { model | tiles = tile :: model.tiles }
             , Cmd.none
             )
 
         MoveUp ->
-            ( { model | tiles = moveUp model.tiles }
-            , Cmd.none
+            ( { model
+                | tiles =
+                    sortTilesByRowsCols model.tiles
+                        |> moveUp
+              }
+            , generateNewTile model.tiles
             )
 
         MoveDown ->
-            ( { model | tiles = moveDown model.tiles }
-            , Cmd.none
-            )
-
-        MoveRight ->
-            ( { model | tiles = moveRight model.tiles }
-            , Cmd.none
+            ( { model
+                | tiles =
+                    sortTilesByRowsCols model.tiles
+                        |> moveDown
+              }
+            , generateNewTile model.tiles
             )
 
         MoveLeft ->
-            ( { model | tiles = moveLeft model.tiles }
-            , Cmd.none
+            ( { model
+                | tiles =
+                    sortTilesByColsRows model.tiles
+                        |> moveLeft
+              }
+            , generateNewTile model.tiles
+            )
+
+        MoveRight ->
+            ( { model
+                | tiles =
+                    sortTilesByColsRows model.tiles
+                        |> moveRight
+              }
+            , generateNewTile model.tiles
             )
 
         LinkClicked urlRequest ->
@@ -118,44 +178,190 @@ update msg model =
             )
 
 
+
+--- Tile manipulation
+
+
 moveUp : List Tile -> List Tile
 moveUp tiles =
-    List.map (\t -> { t | row = clamp 1 4 (t.row - spacesUp t) }) tiles
-
-
-spacesUp : Tile -> Int
-spacesUp tile =
-    tile.row - 1
+    sortTilesByRowsCols <|
+        List.concat <|
+            [ List.map2
+                (\t r -> { t | row = r })
+                (List.filter (\t -> t.col == 1) tiles)
+                (List.range 1 4)
+            , List.map2
+                (\t r -> { t | row = r })
+                (List.filter (\t -> t.col == 2) tiles)
+                (List.range 1 4)
+            , List.map2
+                (\t r -> { t | row = r })
+                (List.filter (\t -> t.col == 3) tiles)
+                (List.range 1 4)
+            , List.map2
+                (\t r -> { t | row = r })
+                (List.filter (\t -> t.col == 4) tiles)
+                (List.range 1 4)
+            ]
 
 
 moveDown : List Tile -> List Tile
 moveDown tiles =
-    List.map (\t -> { t | row = clamp 1 4 (t.row + spacesDown t) }) tiles
-
-
-spacesDown : Tile -> Int
-spacesDown tile =
-    4 - tile.row
+    sortTilesByRowsCols <|
+        List.concat <|
+            [ List.map2
+                (\t r -> { t | row = r })
+                (List.filter (\t -> t.col == 4) tiles)
+                (List.reverse <| List.range 1 4)
+            , List.map2
+                (\t r -> { t | row = r })
+                (List.filter (\t -> t.col == 3) tiles)
+                (List.reverse <| List.range 1 4)
+            , List.map2
+                (\t r -> { t | row = r })
+                (List.filter (\t -> t.col == 2) tiles)
+                (List.reverse <| List.range 1 4)
+            , List.map2
+                (\t r -> { t | row = r })
+                (List.filter (\t -> t.col == 1) tiles)
+                (List.reverse <| List.range 1 4)
+            ]
 
 
 moveLeft : List Tile -> List Tile
 moveLeft tiles =
-    List.map (\t -> { t | column = clamp 1 4 (t.column - spacesLeft t) }) tiles
-
-
-spacesLeft : Tile -> Int
-spacesLeft tile =
-    tile.column - 1
+    sortTilesByRowsCols <|
+        List.concat <|
+            [ List.map2
+                (\t c -> { t | col = c })
+                (List.filter (\t -> t.row == 1) tiles)
+                (List.range 1 4)
+            , List.map2
+                (\t c -> { t | col = c })
+                (List.filter (\t -> t.row == 2) tiles)
+                (List.range 1 4)
+            , List.map2
+                (\t c -> { t | col = c })
+                (List.filter (\t -> t.row == 3) tiles)
+                (List.range 1 4)
+            , List.map2
+                (\t c -> { t | col = c })
+                (List.filter (\t -> t.row == 4) tiles)
+                (List.range 1 4)
+            ]
 
 
 moveRight : List Tile -> List Tile
 moveRight tiles =
-    List.map (\t -> { t | column = clamp 1 4 (t.column + spacesRight t) }) tiles
+    sortTilesByRowsCols <|
+        List.concat <|
+            [ List.map2
+                (\t c -> { t | col = c })
+                (List.filter (\t -> t.row == 4) tiles)
+                (List.reverse <| List.range 1 4)
+            , List.map2
+                (\t c -> { t | col = c })
+                (List.filter (\t -> t.row == 3) tiles)
+                (List.reverse <| List.range 1 4)
+            , List.map2
+                (\t c -> { t | col = c })
+                (List.filter (\t -> t.row == 2) tiles)
+                (List.reverse <| List.range 1 4)
+            , List.map2
+                (\t c -> { t | col = c })
+                (List.filter (\t -> t.row == 1) tiles)
+                (List.reverse <| List.range 1 4)
+            ]
 
 
-spacesRight : Tile -> Int
-spacesRight tile =
-    4 - tile.column
+
+-- generate Array of empty location indices
+
+
+emptyLocationIndices : List Tile -> Array.Array Int
+emptyLocationIndices tiles =
+    if List.isEmpty tiles then
+        allIndicesSet
+            |> Set.toList
+            |> Array.fromList
+
+    else
+        Set.diff allIndicesSet (placedIndicesSet tiles)
+            |> Set.toList
+            |> Array.fromList
+
+
+placedIndicesSet : List Tile -> Set.Set Int
+placedIndicesSet tiles =
+    List.map (\t -> t.index) tiles
+        |> Set.fromList
+
+
+allIndicesSet : Set.Set Int
+allIndicesSet =
+    Set.fromList <| List.range 1 16
+
+
+
+--- Sorting list of tiles
+
+
+sortTilesByRowsCols : List Tile -> List Tile
+sortTilesByRowsCols tiles =
+    List.sortWith rowColOrder tiles
+        |> List.map (\t -> { t | index = rowIndex t.row t.col })
+
+
+sortTilesByColsRows : List Tile -> List Tile
+sortTilesByColsRows tiles =
+    List.sortWith colRowOrder tiles
+        |> List.map (\t -> { t | index = colIndex t.row t.col })
+
+
+rowColOrder t1 t2 =
+    let
+        index1 =
+            rowIndex t1.row t1.col
+
+        index2 =
+            rowIndex t2.row t2.col
+    in
+    if index1 > index2 then
+        GT
+
+    else if index1 < index2 then
+        LT
+
+    else
+        EQ
+
+
+colRowOrder t1 t2 =
+    let
+        index1 =
+            colIndex t1.row t1.col
+
+        index2 =
+            colIndex t2.row t2.col
+    in
+    if index1 > index2 then
+        GT
+
+    else if index1 < index2 then
+        LT
+
+    else
+        EQ
+
+
+rowIndex : Int -> Int -> Int
+rowIndex row col =
+    col + (row - 1) * 4
+
+
+colIndex : Int -> Int -> Int
+colIndex row col =
+    row + (col - 1) * 4
 
 
 
@@ -217,6 +423,82 @@ view model =
     }
 
 
+
+--- Tiles
+
+
+tileContainer : List Tile -> Html Msg
+tileContainer tiles =
+    div [ class "tile-container" ]
+        (listOfTiles tiles)
+
+
+listOfTiles : List Tile -> List (Html Msg)
+listOfTiles tiles =
+    List.map (\t -> singleTile t) tiles
+
+
+singleTile : Tile -> Html Msg
+singleTile t =
+    div
+        [ class <| tileClassStr t ]
+        [ div [ class "tile-inner" ]
+            [ text <| String.fromInt t.value ]
+        ]
+
+
+tileClassStr : Tile -> String
+tileClassStr t =
+    let
+        classStr =
+            String.join " "
+                [ "tile"
+                , "tile-" ++ String.fromInt t.value
+                , "tile-position-"
+                    ++ String.fromInt t.col
+                    ++ "-"
+                    ++ String.fromInt t.row
+                ]
+    in
+    if t.new then
+        "tile-new " ++ classStr
+
+    else
+        classStr
+
+
+
+--- Playing grid
+
+
+gridContainer : Html none
+gridContainer =
+    div [ class "grid-container" ]
+        [ gridRow
+        , gridRow
+        , gridRow
+        , gridRow
+        ]
+
+
+gridRow : Html none
+gridRow =
+    div [ class "grid-row" ]
+        [ div [ class "grid-cell" ]
+            []
+        , div [ class "grid-cell" ]
+            []
+        , div [ class "grid-cell" ]
+            []
+        , div [ class "grid-cell" ]
+            []
+        ]
+
+
+
+--- Above and below the playing area
+
+
 gameHeader : Html Msg
 gameHeader =
     div [ class "heading" ]
@@ -258,63 +540,6 @@ gameMessage =
             , a [ class "retry-button" ]
                 [ text "Try again" ]
             ]
-        ]
-
-
-gridContainer : Html none
-gridContainer =
-    div [ class "grid-container" ]
-        [ gridRow
-        , gridRow
-        , gridRow
-        , gridRow
-        ]
-
-
-gridRow : Html none
-gridRow =
-    div [ class "grid-row" ]
-        [ div [ class "grid-cell" ]
-            []
-        , div [ class "grid-cell" ]
-            []
-        , div [ class "grid-cell" ]
-            []
-        , div [ class "grid-cell" ]
-            []
-        ]
-
-
-tileContainer : List Tile -> Html Msg
-tileContainer tiles =
-    div [ class "tile-container" ]
-        (listOfTiles tiles)
-
-
-listOfTiles : List Tile -> List (Html Msg)
-listOfTiles tiles =
-    List.map (\t -> singleTile t) tiles
-
-
-singleTile : Tile -> Html Msg
-singleTile aTile =
-    div
-        [ class <| tileClassStr aTile ]
-        [ div [ class "tile-inner" ]
-            [ text <| String.fromInt aTile.value ]
-        ]
-
-
-tileClassStr : Tile -> String
-tileClassStr aTile =
-    String.join " "
-        [ "tile"
-        , "tile-new"
-        , "tile-" ++ String.fromInt aTile.value
-        , "tile-position-"
-            ++ String.fromInt aTile.column
-            ++ "-"
-            ++ String.fromInt aTile.row
         ]
 
 
