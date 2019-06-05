@@ -8,8 +8,10 @@ import Html exposing (Html, a, button, div, form, h1, hr, img, p, strong, text)
 import Html.Attributes exposing (class, href, id, src, target)
 import Html.Events exposing (custom, on, onClick)
 import Json.Decode as Json
+import Process
 import Random
 import Set
+import Task
 import Url
 
 
@@ -73,10 +75,6 @@ newTileInEmptyLocation locationIndices =
 
 tileGenerator : Array.Array Int -> Random.Generator Tile
 tileGenerator locationIndices =
-    let
-        _ =
-            Debug.log ("tileGenerator: " ++ (String.fromInt <| Array.length locationIndices)) 1
-    in
     Random.map
         (\indx ->
             Array.get (indx - 1) locationIndices
@@ -103,6 +101,7 @@ tileFromLocationIndex indx =
 type Msg
     = NoOp
     | NewGame
+    | NewTile
     | AddTile Tile
     | MoveUp
     | MoveDown
@@ -123,6 +122,11 @@ update msg model =
             , generateNewTile []
             )
 
+        NewTile ->
+            ( model
+            , generateNewTile model.tiles
+            )
+
         AddTile tile ->
             ( { model | tiles = tile :: model.tiles }
             , Cmd.none
@@ -134,7 +138,7 @@ update msg model =
                     sortTilesByRowsCols model.tiles
                         |> moveUp
               }
-            , generateNewTile model.tiles
+            , newTileLater
             )
 
         MoveDown ->
@@ -143,7 +147,7 @@ update msg model =
                     sortTilesByRowsCols model.tiles
                         |> moveDown
               }
-            , generateNewTile model.tiles
+            , newTileLater
             )
 
         MoveLeft ->
@@ -152,7 +156,7 @@ update msg model =
                     sortTilesByColsRows model.tiles
                         |> moveLeft
               }
-            , generateNewTile model.tiles
+            , newTileLater
             )
 
         MoveRight ->
@@ -161,7 +165,7 @@ update msg model =
                     sortTilesByColsRows model.tiles
                         |> moveRight
               }
-            , generateNewTile model.tiles
+            , newTileLater
             )
 
         LinkClicked urlRequest ->
@@ -176,6 +180,11 @@ update msg model =
             ( { model | url = url }
             , Cmd.none
             )
+
+
+newTileLater : Cmd Msg
+newTileLater =
+    Process.sleep 300 |> Task.perform (always NewTile)
 
 
 
