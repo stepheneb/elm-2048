@@ -293,7 +293,7 @@ emptyLocationIndices tiles =
 
 placedIndicesSet : List Tile -> Set.Set Int
 placedIndicesSet tiles =
-    List.map (\t -> t.index) tiles
+    List.map .index tiles
         |> Set.fromList
 
 
@@ -435,7 +435,7 @@ tileContainer tiles =
 
 listOfTiles : List Tile -> List (Html Msg)
 listOfTiles tiles =
-    List.map (\t -> singleTile t) tiles
+    List.map singleTile tiles
 
 
 singleTile : Tile -> Html Msg
