@@ -632,9 +632,13 @@ gameNotes =
     p []
         [ strong [ class "important" ]
             [ text "Note: " ]
-        , text "This is not the official version of 2048! It is an Elm implementation of Gabriele Cirulli's "
+        , text "This is not the official version of 2048! It is an "
+        , text "implementation of Gabriele Cirulli's "
         , a [ href "https://github.com/gabrielecirulli/2048" ]
-            [ text "2048 game" ]
+            [ text "2048 game " ]
+        , text "written in "
+        , a [ href "https://elm-lang.org/" ]
+            [ text "Elm" ]
         , text ". You can find the code for this Elm implementation here: "
         , a [ href "https://github.com/stepheneb/elm-2048" ]
             [ text "github.com/stepheneb/elm-2048" ]
