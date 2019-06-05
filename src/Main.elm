@@ -23,6 +23,8 @@ type alias Model =
     { tiles : List Tile
     , key : Nav.Key
     , url : Url.Url
+    , score : Int
+    , bestScore : Int
     }
 
 
@@ -51,6 +53,8 @@ initialModel url key =
     { tiles = []
     , url = url
     , key = key
+    , score = 0
+    , bestScore = 0
     }
 
 
@@ -130,7 +134,7 @@ update msg model =
             )
 
         AddTile tile ->
-            ( { model | tiles = addTile tile model.tiles }
+            ( updateScores { model | tiles = addTile tile model.tiles }
             , Cmd.none
             )
 
@@ -192,6 +196,18 @@ newTileLater =
 addTile : Tile -> List Tile -> List Tile
 addTile tile tiles =
     tile :: List.map (\t -> { t | new = False }) tiles
+
+
+updateScores : Model -> Model
+updateScores model =
+    let
+        score =
+            List.foldl (+) 0 <| List.map .value model.tiles
+    in
+    { model
+        | score = score
+        , bestScore = max score model.bestScore
+    }
 
 
 
@@ -460,7 +476,7 @@ view model =
     { title = "Elm 2048"
     , body =
         [ div [ class "container" ]
-            [ gameHeader
+            [ gameHeader model
             , aboveGame
             , div [ class "game-container" ]
                 [ gameMessage
@@ -569,16 +585,16 @@ gridRow =
 --- Above and below the playing area
 
 
-gameHeader : Html Msg
-gameHeader =
+gameHeader : Model -> Html Msg
+gameHeader model =
     div [ class "heading" ]
         [ h1 [ class "title" ]
             [ text "Elm 2048" ]
         , div [ class "scores-container" ]
             [ div [ class "score-container" ]
-                [ text "0" ]
+                [ text <| String.fromInt <| model.score ]
             , div [ class "best-container" ]
-                [ text "0" ]
+                [ text <| String.fromInt <| model.bestScore ]
             ]
         ]
 
