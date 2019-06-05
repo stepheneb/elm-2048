@@ -20,7 +20,7 @@ $tile-gold-glow-color: lighten($tile-gold-color, 15%);
 $game-container-margin-top: 40px;
 $game-container-background: #bbada0;
 
-$transition-speed: 100ms;
+$transition-speed: 300ms;
 
 /*
   elm-hot creates an additional div wrapper around the app to make HMR possible.
@@ -53,7 +53,7 @@ body {
 }
 
 h1.title {
-  font-size: 70px;
+  font-size: 60px;
   font-weight: bold;
   margin: 0;
   display: block;
@@ -75,6 +75,9 @@ h1.title {
 .scores-container {
   float: right;
   text-align: right;
+  div:first-child {
+    margin-right: 5px;
+  }
 }
 
 .score-container,

@@ -7,6 +7,8 @@ import Browser.Navigation as Nav
 import Html exposing (Html, a, button, div, form, h1, hr, img, p, strong, text)
 import Html.Attributes exposing (class, href, id, src, target)
 import Html.Events exposing (custom, on, onClick)
+import Html.Keyed as Keyed
+import Html.Lazy exposing (lazy)
 import Json.Decode as Json
 import Process
 import Random
@@ -25,6 +27,7 @@ type alias Model =
     , url : Url.Url
     , score : Int
     , bestScore : Int
+    , nextTileKey : Int
     }
 
 
@@ -40,6 +43,7 @@ type alias Tile =
     , index : Int
     , new : Bool
     , merged : Bool
+    , key : Int
     }
 
 
@@ -55,6 +59,7 @@ initialModel url key =
     , key = key
     , score = 0
     , bestScore = 0
+    , nextTileKey = 1
     }
 
 
@@ -97,6 +102,7 @@ tileFromLocationIndex indx =
     , index = indx
     , new = True
     , merged = False
+    , key = 0
     }
 
 
@@ -134,43 +140,31 @@ update msg model =
             )
 
         AddTile tile ->
-            ( updateScores { model | tiles = addTile tile model.tiles }
+            ( updateScores
+                { model
+                    | nextTileKey = model.nextTileKey + 1
+                    , tiles = addTile tile model |> sortTilesByRowsCols
+                }
             , Cmd.none
             )
 
         MoveUp ->
-            ( { model
-                | tiles =
-                    sortTilesByRowsCols model.tiles
-                        |> moveUp
-              }
+            ( { model | tiles = moveUp model.tiles }
             , newTileLater
             )
 
         MoveDown ->
-            ( { model
-                | tiles =
-                    sortTilesByRowsCols model.tiles
-                        |> moveDown
-              }
+            ( { model | tiles = moveDown model.tiles }
             , newTileLater
             )
 
         MoveLeft ->
-            ( { model
-                | tiles =
-                    sortTilesByColsRows model.tiles
-                        |> moveLeft
-              }
+            ( { model | tiles = moveLeft model.tiles }
             , newTileLater
             )
 
         MoveRight ->
-            ( { model
-                | tiles =
-                    sortTilesByColsRows model.tiles
-                        |> moveRight
-              }
+            ( { model | tiles = moveRight model.tiles }
             , newTileLater
             )
 
@@ -190,12 +184,12 @@ update msg model =
 
 newTileLater : Cmd Msg
 newTileLater =
-    Process.sleep 300 |> Task.perform (always NewTile)
+    Process.sleep 400 |> Task.perform (always NewTile)
 
 
-addTile : Tile -> List Tile -> List Tile
-addTile tile tiles =
-    tile :: List.map (\t -> { t | new = False }) tiles
+addTile : Tile -> Model -> List Tile
+addTile tile model =
+    { tile | key = model.nextTileKey } :: List.map (\t -> { t | new = False }) model.tiles
 
 
 updateScores : Model -> Model
@@ -222,91 +216,77 @@ removeMergedStatus tiles =
 moveUp : List Tile -> List Tile
 moveUp tiles =
     removeMergedStatus tiles
-        |> moveUpDownHelp range1to4
+        |> tilesInColumns Normal
+        |> List.map squashUp
+        |> List.map mergeTiles
+        |> List.map squashUp
+        |> List.concat
         |> sortTilesByRowsCols
+
+
+squashUp : List Tile -> List Tile
+squashUp tiles =
+    List.map2
+        (\t r -> { t | row = r })
+        tiles
+        (List.range 1 4)
 
 
 moveDown : List Tile -> List Tile
 moveDown tiles =
     removeMergedStatus tiles
-        |> moveUpDownHelp range4to1
+        |> tilesInColumns Reversed
+        |> List.map squashDown
+        |> List.map mergeTiles
+        |> List.map squashDown
+        |> List.concat
         |> sortTilesByRowsCols
 
 
-moveUpDownHelp : List Int -> List Tile -> List Tile
-moveUpDownHelp range tiles =
-    List.concat <|
-        [ contractColumn range 1 tiles
-            |> mergeTiles
-            |> contractColumn range 1
-        , contractColumn range4to1 2 tiles
-            |> mergeTiles
-            |> contractColumn range 2
-        , contractColumn range 3 tiles
-            |> mergeTiles
-            |> contractColumn range 3
-        , contractColumn range 4 tiles
-            |> mergeTiles
-            |> contractColumn range 4
-        ]
+squashDown : List Tile -> List Tile
+squashDown tiles =
+    List.map2
+        (\t r -> { t | row = r })
+        tiles
+        (List.reverse <| List.range 1 4)
 
 
 moveLeft : List Tile -> List Tile
 moveLeft tiles =
     removeMergedStatus tiles
-        |> moveLeftRightHelp range1to4
+        |> tilesInRows Normal
+        |> List.map squashLeft
+        |> List.map mergeTiles
+        |> List.map squashLeft
+        |> List.concat
         |> sortTilesByRowsCols
+
+
+squashLeft : List Tile -> List Tile
+squashLeft tiles =
+    List.map2
+        (\t c -> { t | col = c })
+        tiles
+        (List.range 1 4)
 
 
 moveRight : List Tile -> List Tile
 moveRight tiles =
     removeMergedStatus tiles
-        |> moveLeftRightHelp range4to1
+        |> tilesInRows Reversed
+        |> List.map squashRight
+        |> List.map mergeTiles
+        |> List.map squashRight
+        |> List.concat
         |> sortTilesByRowsCols
 
 
-moveLeftRightHelp : List Int -> List Tile -> List Tile
-moveLeftRightHelp range tiles =
-    List.concat <|
-        [ contractRow range 1 tiles
-            |> mergeTiles
-            |> contractRow range 1
-        , contractRow range4to1 2 tiles
-            |> mergeTiles
-            |> contractRow range 2
-        , contractRow range 3 tiles
-            |> mergeTiles
-            |> contractRow range 3
-        , contractRow range 4 tiles
-            |> mergeTiles
-            |> contractRow range 4
-        ]
-
-
-range1to4 : List Int
-range1to4 =
-    List.range 1 4
-
-
-range4to1 : List Int
-range4to1 =
-    List.reverse <| List.range 1 4
-
-
-contractColumn : List Int -> Int -> List Tile -> List Tile
-contractColumn range colnum tiles =
-    List.map2
-        (\t r -> { t | row = r })
-        (List.filter (\t -> t.col == colnum) tiles)
-        range
-
-
-contractRow : List Int -> Int -> List Tile -> List Tile
-contractRow range rownum tiles =
+squashRight : List Tile -> List Tile
+squashRight tiles =
     List.map2
         (\t c -> { t | col = c })
-        (List.filter (\t -> t.row == rownum) tiles)
-        range
+        tiles
+        (List.reverse <| List.range 1 4)
 
 
 mergeTiles : List Tile -> List Tile
@@ -331,7 +311,8 @@ mergeTilesHelp checked t1 t2 rest =
 
         [ t3 ] ->
             if t1.value == t2.value then
-                [ { t1 | value = t1.value * 2, merged = True }, t3 ]
+                List.reverse
+                    (t3 :: { t1 | value = t1.value * 2, merged = True } :: checked)
 
             else
                 mergeTilesHelp (t1 :: checked) t2 t3 []
@@ -376,18 +357,86 @@ allIndicesSet =
 --- Sorting list of tiles
 
 
+type SortDirection
+    = Normal
+    | Reversed
+
+
+tilesInColumns : SortDirection -> List Tile -> List (List Tile)
+tilesInColumns direction tiles =
+    List.map
+        (\list ->
+            case direction of
+                Normal ->
+                    identity list
+
+                Reversed ->
+                    List.reverse list
+        )
+        [ List.filter (\t -> t.col == 1) tiles
+            |> List.sortWith colOrder
+        , List.filter (\t -> t.col == 2) tiles
+            |> List.sortWith colOrder
+        , List.filter (\t -> t.col == 3) tiles
+            |> List.sortWith colOrder
+        , List.filter (\t -> t.col == 4) tiles
+            |> List.sortWith colOrder
+        ]
+
+
+colOrder : Tile -> Tile -> Order
+colOrder t1 t2 =
+    if t1.col > t2.col then
+        GT
+
+    else if t1.col < t2.col then
+        LT
+
+    else
+        EQ
+
+
+tilesInRows : SortDirection -> List Tile -> List (List Tile)
+tilesInRows direction tiles =
+    List.map
+        (\list ->
+            case direction of
+                Normal ->
+                    identity list
+
+                Reversed ->
+                    List.reverse list
+        )
+        [ List.filter (\t -> t.row == 1) tiles
+            |> List.sortWith rowOrder
+        , List.filter (\t -> t.row == 2) tiles
+            |> List.sortWith rowOrder
+        , List.filter (\t -> t.row == 3) tiles
+            |> List.sortWith rowOrder
+        , List.filter (\t -> t.row == 4) tiles
+            |> List.sortWith rowOrder
+        ]
+
+
+rowOrder : Tile -> Tile -> Order
+rowOrder t1 t2 =
+    if t1.row > t2.row then
+        GT
+
+    else if t1.row < t2.row then
+        LT
+
+    else
+        EQ
+
+
 sortTilesByRowsCols : List Tile -> List Tile
 sortTilesByRowsCols tiles =
     List.sortWith rowColOrder tiles
         |> List.map (\t -> { t | index = rowIndex t.row t.col })
 
 
-sortTilesByColsRows : List Tile -> List Tile
-sortTilesByColsRows tiles =
-    List.sortWith colRowOrder tiles
-        |> List.map (\t -> { t | index = colIndex t.row t.col })
-
-
+rowColOrder : Tile -> Tile -> Order
 rowColOrder t1 t2 =
     let
         index1 =
@@ -395,24 +444,6 @@ rowColOrder t1 t2 =
 
         index2 =
             rowIndex t2.row t2.col
-    in
-    if index1 > index2 then
-        GT
-
-    else if index1 < index2 then
-        LT
-
-    else
-        EQ
-
-
-colRowOrder t1 t2 =
-    let
-        index1 =
-            colIndex t1.row t1.col
-
-        index2 =
-            colIndex t2.row t2.col
     in
     if index1 > index2 then
         GT
@@ -497,18 +528,24 @@ view model =
 --- Tiles
 
 
-tileContainer : List Tile -> Html Msg
+tileContainer : List Tile -> Html msg
 tileContainer tiles =
-    div [ class "tile-container" ]
+    Keyed.node "div"
+        [ class "tile-container" ]
         (listOfTiles tiles)
 
 
-listOfTiles : List Tile -> List (Html Msg)
+listOfTiles : List Tile -> List ( String, Html msg )
 listOfTiles tiles =
-    List.map singleTile tiles
+    List.map singleKeyedTile tiles
 
 
-singleTile : Tile -> Html Msg
+singleKeyedTile : Tile -> ( String, Html msg )
+singleKeyedTile t =
+    ( String.fromInt t.key, lazy singleTile t )
+
+
+singleTile : Tile -> Html msg
 singleTile t =
     div
         [ class <| tileClassStr t ]
