@@ -128,7 +128,7 @@ update msg model =
             )
 
         AddTile tile ->
-            ( { model | tiles = tile :: model.tiles }
+            ( { model | tiles = addTile tile model.tiles }
             , Cmd.none
             )
 
@@ -185,6 +185,11 @@ update msg model =
 newTileLater : Cmd Msg
 newTileLater =
     Process.sleep 300 |> Task.perform (always NewTile)
+
+
+addTile : Tile -> List Tile -> List Tile
+addTile tile tiles =
+    tile :: List.map (\t -> { t | new = False }) tiles
 
 
 
