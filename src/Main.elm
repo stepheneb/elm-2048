@@ -37,6 +37,7 @@ type alias Tile =
     , col : Int
     , index : Int
     , new : Bool
+    , merged : Bool
     }
 
 
@@ -91,6 +92,7 @@ tileFromLocationIndex indx =
     , col = remainderBy 4 (indx - 1) + 1
     , index = indx
     , new = True
+    , merged = False
     }
 
 
@@ -196,100 +198,138 @@ addTile tile tiles =
 --- Tile manipulation
 
 
+removeMergedStatus : List Tile -> List Tile
+removeMergedStatus tiles =
+    List.map (\t -> { t | merged = False }) tiles
+
+
 moveUp : List Tile -> List Tile
 moveUp tiles =
-    sortTilesByRowsCols <|
-        List.concat <|
-            [ List.map2
-                (\t r -> { t | row = r })
-                (List.filter (\t -> t.col == 1) tiles)
-                (List.range 1 4)
-            , List.map2
-                (\t r -> { t | row = r })
-                (List.filter (\t -> t.col == 2) tiles)
-                (List.range 1 4)
-            , List.map2
-                (\t r -> { t | row = r })
-                (List.filter (\t -> t.col == 3) tiles)
-                (List.range 1 4)
-            , List.map2
-                (\t r -> { t | row = r })
-                (List.filter (\t -> t.col == 4) tiles)
-                (List.range 1 4)
-            ]
+    removeMergedStatus tiles
+        |> moveUpDownHelp range1to4
+        |> sortTilesByRowsCols
 
 
 moveDown : List Tile -> List Tile
 moveDown tiles =
-    sortTilesByRowsCols <|
-        List.concat <|
-            [ List.map2
-                (\t r -> { t | row = r })
-                (List.filter (\t -> t.col == 4) tiles)
-                (List.reverse <| List.range 1 4)
-            , List.map2
-                (\t r -> { t | row = r })
-                (List.filter (\t -> t.col == 3) tiles)
-                (List.reverse <| List.range 1 4)
-            , List.map2
-                (\t r -> { t | row = r })
-                (List.filter (\t -> t.col == 2) tiles)
-                (List.reverse <| List.range 1 4)
-            , List.map2
-                (\t r -> { t | row = r })
-                (List.filter (\t -> t.col == 1) tiles)
-                (List.reverse <| List.range 1 4)
-            ]
+    removeMergedStatus tiles
+        |> moveUpDownHelp range4to1
+        |> sortTilesByRowsCols
+
+
+moveUpDownHelp : List Int -> List Tile -> List Tile
+moveUpDownHelp range tiles =
+    List.concat <|
+        [ contractColumn range 1 tiles
+            |> mergeTiles
+            |> contractColumn range 1
+        , contractColumn range4to1 2 tiles
+            |> mergeTiles
+            |> contractColumn range 2
+        , contractColumn range 3 tiles
+            |> mergeTiles
+            |> contractColumn range 3
+        , contractColumn range 4 tiles
+            |> mergeTiles
+            |> contractColumn range 4
+        ]
 
 
 moveLeft : List Tile -> List Tile
 moveLeft tiles =
-    sortTilesByRowsCols <|
-        List.concat <|
-            [ List.map2
-                (\t c -> { t | col = c })
-                (List.filter (\t -> t.row == 1) tiles)
-                (List.range 1 4)
-            , List.map2
-                (\t c -> { t | col = c })
-                (List.filter (\t -> t.row == 2) tiles)
-                (List.range 1 4)
-            , List.map2
-                (\t c -> { t | col = c })
-                (List.filter (\t -> t.row == 3) tiles)
-                (List.range 1 4)
-            , List.map2
-                (\t c -> { t | col = c })
-                (List.filter (\t -> t.row == 4) tiles)
-                (List.range 1 4)
-            ]
+    removeMergedStatus tiles
+        |> moveLeftRightHelp range1to4
+        |> sortTilesByRowsCols
 
 
 moveRight : List Tile -> List Tile
 moveRight tiles =
-    sortTilesByRowsCols <|
-        List.concat <|
-            [ List.map2
-                (\t c -> { t | col = c })
-                (List.filter (\t -> t.row == 4) tiles)
-                (List.reverse <| List.range 1 4)
-            , List.map2
-                (\t c -> { t | col = c })
-                (List.filter (\t -> t.row == 3) tiles)
-                (List.reverse <| List.range 1 4)
-            , List.map2
-                (\t c -> { t | col = c })
-                (List.filter (\t -> t.row == 2) tiles)
-                (List.reverse <| List.range 1 4)
-            , List.map2
-                (\t c -> { t | col = c })
-                (List.filter (\t -> t.row == 1) tiles)
-                (List.reverse <| List.range 1 4)
-            ]
+    removeMergedStatus tiles
+        |> moveLeftRightHelp range4to1
+        |> sortTilesByRowsCols
+
+
+moveLeftRightHelp : List Int -> List Tile -> List Tile
+moveLeftRightHelp range tiles =
+    List.concat <|
+        [ contractRow range 1 tiles
+            |> mergeTiles
+            |> contractRow range 1
+        , contractRow range4to1 2 tiles
+            |> mergeTiles
+            |> contractRow range 2
+        , contractRow range 3 tiles
+            |> mergeTiles
+            |> contractRow range 3
+        , contractRow range 4 tiles
+            |> mergeTiles
+            |> contractRow range 4
+        ]
+
+
+range1to4 : List Int
+range1to4 =
+    List.range 1 4
+
+
+range4to1 : List Int
+range4to1 =
+    List.reverse <| List.range 1 4
+
+
+contractColumn : List Int -> Int -> List Tile -> List Tile
+contractColumn range colnum tiles =
+    List.map2
+        (\t r -> { t | row = r })
+        (List.filter (\t -> t.col == colnum) tiles)
+        range
+
+
+contractRow : List Int -> Int -> List Tile -> List Tile
+contractRow range rownum tiles =
+    List.map2
+        (\t c -> { t | col = c })
+        (List.filter (\t -> t.row == rownum) tiles)
+        range
+
+
+mergeTiles : List Tile -> List Tile
+mergeTiles tiles =
+    case tiles of
+        t1 :: t2 :: rest ->
+            mergeTilesHelp [] t1 t2 rest
+
+        _ ->
+            tiles
+
+
+mergeTilesHelp : List Tile -> Tile -> Tile -> List Tile -> List Tile
+mergeTilesHelp checked t1 t2 rest =
+    case rest of
+        t3 :: t4 :: ts ->
+            if t1.value == t2.value then
+                mergeTilesHelp ({ t1 | value = t1.value * 2, merged = True } :: checked) t3 t4 ts
+
+            else
+                mergeTilesHelp (t1 :: checked) t2 t3 (t4 :: ts)
+
+        [ t3 ] ->
+            if t1.value == t2.value then
+                [ { t1 | value = t1.value * 2, merged = True }, t3 ]
+
+            else
+                mergeTilesHelp (t1 :: checked) t2 t3 []
+
+        [] ->
+            if t1.value == t2.value then
+                List.reverse ({ t1 | value = t1.value * 2, merged = True } :: checked)
+
+            else
+                List.reverse (t2 :: t1 :: checked)
 
 
 
--- generate Array of empty location indices
+-- Generate Array of empty location indices
 
 
 emptyLocationIndices : List Tile -> Array.Array Int
@@ -474,11 +514,27 @@ tileClassStr t =
                     ++ String.fromInt t.row
                 ]
     in
-    if t.new then
-        "tile-new " ++ classStr
+    classStr ++ newTileClassStr t ++ mergedTileClassStr t
 
-    else
-        classStr
+
+newTileClassStr : Tile -> String
+newTileClassStr t =
+    case t.new of
+        True ->
+            " tile-new "
+
+        False ->
+            ""
+
+
+mergedTileClassStr : Tile -> String
+mergedTileClassStr t =
+    case t.merged of
+        True ->
+            " tile-merged "
+
+        False ->
+            ""
 
 
 
