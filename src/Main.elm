@@ -229,33 +229,37 @@ addTile tile model =
 updateScoresAndGameStatus : Model -> Model
 updateScoresAndGameStatus model =
     let
-        previousScore =
-            model.score
-
         lastMoveScore =
             List.filter (\t -> t.merged) model.tiles
                 |> List.map .value
                 |> List.foldl (+) 0
 
         score =
-            previousScore + lastMoveScore
+            model.score + lastMoveScore
     in
     { model
         | score = score
         , bestScore = max score model.bestScore
-        , gameStatus = gameStatus model.gameStatus previousScore score model.tiles
+        , gameStatus = gameStatus model
     }
 
 
-gameStatus : GameStatus -> Int -> Int -> List Tile -> GameStatus
-gameStatus status previousScore score tiles =
-    case status of
+gameStatus : Model -> GameStatus
+gameStatus model =
+    let
+        gridFull =
+            List.length model.tiles == maxTiles
+
+        any2048Tile =
+            List.any (.value >> (==) 2048) model.tiles
+    in
+    case model.gameStatus of
         Playing ->
-            if any2048Tile tiles then
+            if any2048Tile then
                 Won
 
-            else if List.length tiles == maxTiles then
-                if movePossible tiles then
+            else if gridFull then
+                if movePossible model.tiles then
                     Playing
 
                 else
@@ -265,8 +269,8 @@ gameStatus status previousScore score tiles =
                 Playing
 
         KeepPlaying ->
-            if List.length tiles == maxTiles then
-                if movePossible tiles then
+            if gridFull then
+                if movePossible model.tiles then
                     KeepPlaying
 
                 else
@@ -276,20 +280,21 @@ gameStatus status previousScore score tiles =
                 KeepPlaying
 
         _ ->
-            status
-
-
-any2048Tile : List Tile -> Bool
-any2048Tile tiles =
-    List.any (\t -> t.value == 2048) tiles
+            model.gameStatus
 
 
 movePossible : List Tile -> Bool
 movePossible tiles =
-    List.length (moveUp tiles)
-        < maximumNumberOfTiles
-        || List.length (moveLeft tiles)
-        < maximumNumberOfTiles
+    let
+        can move =
+            lessThenMax (move tiles)
+    in
+    can moveUp || can moveLeft
+
+
+lessThenMax : List Tile -> Bool
+lessThenMax tiles =
+    List.length tiles < maxTiles
 
 
 
@@ -298,7 +303,7 @@ movePossible tiles =
 
 generateNewTile : List Tile -> Cmd Msg
 generateNewTile tiles =
-    if List.length tiles < maxTiles then
+    if lessThenMax tiles then
         sortTilesByRowsCols tiles
             |> emptyLocationIndices
             |> newTileInEmptyLocation
@@ -378,14 +383,26 @@ allIndicesSet =
 --- update: tile movement
 
 
-removeMergedStatus : List Tile -> List Tile
-removeMergedStatus tiles =
-    List.map (\t -> { t | merged = False }) tiles
+changeTiles : (Tile -> Tile) -> List Tile -> List Tile
+changeTiles func tiles =
+    List.map func tiles
+
+
+notMerged : Tile -> Tile
+notMerged tile =
+    { tile | merged = False }
 
 
 moveUp : List Tile -> List Tile
 moveUp tiles =
-    removeMergedStatus tiles
+    let
+        squashUp tilelist =
+            List.map2
+                (\t r -> { t | row = r })
+                tilelist
+                (List.range 1 4)
+    in
+    changeTiles notMerged tiles
         |> tilesInColumns Normal
         |> List.map squashUp
         |> List.map mergeTiles
@@ -396,7 +413,14 @@ moveUp tiles =
 
 moveDown : List Tile -> List Tile
 moveDown tiles =
-    removeMergedStatus tiles
+    let
+        squashDown tilelist =
+            List.map2
+                (\t r -> { t | row = r })
+                tilelist
+                (List.reverse <| List.range 1 4)
+    in
+    changeTiles notMerged tiles
         |> tilesInColumns Reversed
         |> List.map squashDown
         |> List.map mergeTiles
@@ -407,7 +431,14 @@ moveDown tiles =
 
 moveLeft : List Tile -> List Tile
 moveLeft tiles =
-    removeMergedStatus tiles
+    let
+        squashLeft tilelist =
+            List.map2
+                (\t c -> { t | col = c })
+                tilelist
+                (List.range 1 4)
+    in
+    changeTiles notMerged tiles
         |> tilesInRows Normal
         |> List.map squashLeft
         |> List.map mergeTiles
@@ -418,45 +449,20 @@ moveLeft tiles =
 
 moveRight : List Tile -> List Tile
 moveRight tiles =
-    removeMergedStatus tiles
+    let
+        squashRight tilelist =
+            List.map2
+                (\t c -> { t | col = c })
+                tilelist
+                (List.reverse <| List.range 1 4)
+    in
+    changeTiles notMerged tiles
         |> tilesInRows Reversed
         |> List.map squashRight
         |> List.map mergeTiles
         |> List.map squashRight
         |> List.concat
         |> sortTilesByRowsCols
-
-
-squashUp : List Tile -> List Tile
-squashUp tiles =
-    List.map2
-        (\t r -> { t | row = r })
-        tiles
-        (List.range 1 4)
-
-
-squashDown : List Tile -> List Tile
-squashDown tiles =
-    List.map2
-        (\t r -> { t | row = r })
-        tiles
-        (List.reverse <| List.range 1 4)
-
-
-squashLeft : List Tile -> List Tile
-squashLeft tiles =
-    List.map2
-        (\t c -> { t | col = c })
-        tiles
-        (List.range 1 4)
-
-
-squashRight : List Tile -> List Tile
-squashRight tiles =
-    List.map2
-        (\t c -> { t | col = c })
-        tiles
-        (List.reverse <| List.range 1 4)
 
 
 mergeTiles : List Tile -> List Tile
@@ -506,6 +512,21 @@ type SortDirection
 
 tilesInColumns : SortDirection -> List Tile -> List (List Tile)
 tilesInColumns direction tiles =
+    let
+        colOrder t1 t2 =
+            if t1.col > t2.col then
+                GT
+
+            else if t1.col < t2.col then
+                LT
+
+            else
+                EQ
+
+        sortedcol col =
+            List.filter (\t -> t.col == col) tiles
+                |> List.sortWith colOrder
+    in
     List.map
         (\list ->
             case direction of
@@ -515,31 +536,29 @@ tilesInColumns direction tiles =
                 Reversed ->
                     List.reverse list
         )
-        [ List.filter (\t -> t.col == 1) tiles
-            |> List.sortWith colOrder
-        , List.filter (\t -> t.col == 2) tiles
-            |> List.sortWith colOrder
-        , List.filter (\t -> t.col == 3) tiles
-            |> List.sortWith colOrder
-        , List.filter (\t -> t.col == 4) tiles
-            |> List.sortWith colOrder
-        ]
-
-
-colOrder : Tile -> Tile -> Order
-colOrder t1 t2 =
-    if t1.col > t2.col then
-        GT
-
-    else if t1.col < t2.col then
-        LT
-
-    else
-        EQ
+        (List.map
+            (\column -> sortedcol column)
+            (List.range 1 4)
+        )
 
 
 tilesInRows : SortDirection -> List Tile -> List (List Tile)
 tilesInRows direction tiles =
+    let
+        rowOrder t1 t2 =
+            if t1.row > t2.row then
+                GT
+
+            else if t1.row < t2.row then
+                LT
+
+            else
+                EQ
+
+        sortedrow row =
+            List.filter (\t -> t.row == row) tiles
+                |> List.sortWith rowOrder
+    in
     List.map
         (\list ->
             case direction of
@@ -549,57 +568,37 @@ tilesInRows direction tiles =
                 Reversed ->
                     List.reverse list
         )
-        [ List.filter (\t -> t.row == 1) tiles
-            |> List.sortWith rowOrder
-        , List.filter (\t -> t.row == 2) tiles
-            |> List.sortWith rowOrder
-        , List.filter (\t -> t.row == 3) tiles
-            |> List.sortWith rowOrder
-        , List.filter (\t -> t.row == 4) tiles
-            |> List.sortWith rowOrder
-        ]
-
-
-rowOrder : Tile -> Tile -> Order
-rowOrder t1 t2 =
-    if t1.row > t2.row then
-        GT
-
-    else if t1.row < t2.row then
-        LT
-
-    else
-        EQ
+        (List.map
+            (\row -> sortedrow row)
+            (List.range 1 4)
+        )
 
 
 sortTilesByRowsCols : List Tile -> List Tile
 sortTilesByRowsCols tiles =
-    List.sortWith rowColOrder tiles
-        |> List.map (\t -> { t | locIndex = rowIndex t.row t.col })
-
-
-rowColOrder : Tile -> Tile -> Order
-rowColOrder t1 t2 =
     let
-        index1 =
-            rowIndex t1.row t1.col
+        rowIndex row col =
+            col + (row - 1) * 4
 
-        index2 =
-            rowIndex t2.row t2.col
+        rowColOrder t1 t2 =
+            let
+                index1 =
+                    rowIndex t1.row t1.col
+
+                index2 =
+                    rowIndex t2.row t2.col
+            in
+            if index1 > index2 then
+                GT
+
+            else if index1 < index2 then
+                LT
+
+            else
+                EQ
     in
-    if index1 > index2 then
-        GT
-
-    else if index1 < index2 then
-        LT
-
-    else
-        EQ
-
-
-rowIndex : Int -> Int -> Int
-rowIndex row col =
-    col + (row - 1) * 4
+    List.sortWith rowColOrder tiles
+        |> changeTiles (\t -> { t | locIndex = rowIndex t.row t.col })
 
 
 
