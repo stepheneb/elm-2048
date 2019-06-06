@@ -85,18 +85,19 @@ newTileInEmptyLocation locationIndices =
 
 tileGenerator : Array.Array Int -> Random.Generator Tile
 tileGenerator locationIndices =
-    Random.map
-        (\indx ->
+    Random.map2
+        (\indx num ->
             Array.get (indx - 1) locationIndices
                 |> Maybe.withDefault 1
-                |> tileFromLocationIndex
+                |> tileFromLocationIndex (valueFrom num)
         )
         (Random.int 1 (Array.length locationIndices))
+        (Random.float 0 1)
 
 
-tileFromLocationIndex : Int -> Tile
-tileFromLocationIndex indx =
-    { value = 2
+tileFromLocationIndex : Int -> Int -> Tile
+tileFromLocationIndex value indx =
+    { value = value
     , row = (indx - 1) // 4 + 1
     , col = remainderBy 4 (indx - 1) + 1
     , index = indx
@@ -104,6 +105,15 @@ tileFromLocationIndex indx =
     , merged = False
     , key = 0
     }
+
+
+valueFrom : Float -> Int
+valueFrom num =
+    if num > 0.9 then
+        4
+
+    else
+        2
 
 
 
@@ -184,7 +194,7 @@ update msg model =
 
 newTileLater : Cmd Msg
 newTileLater =
-    Process.sleep 400 |> Task.perform (always NewTile)
+    Process.sleep 300 |> Task.perform (always NewTile)
 
 
 addTile : Tile -> Model -> List Tile
