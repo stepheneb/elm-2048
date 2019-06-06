@@ -21,12 +21,20 @@ import Url
 ---- MODEL ----
 
 
+type GameStatus
+    = Playing
+    | Over
+    | Won
+    | KeepPlaying
+
+
 type alias Model =
     { tiles : List Tile
     , key : Nav.Key
     , url : Url.Url
     , score : Int
     , bestScore : Int
+    , gameStatus : GameStatus
     , nextTileKey : Int
     }
 
@@ -59,6 +67,7 @@ initialModel url key =
     , key = key
     , score = 0
     , bestScore = 0
+    , gameStatus = Playing
     , nextTileKey = 1
     }
 
@@ -125,6 +134,7 @@ type Msg
     | NewGame
     | NewTile
     | AddTile Tile
+    | KeepGoing
     | MoveUp
     | MoveDown
     | MoveRight
@@ -140,7 +150,12 @@ update msg model =
             ( model, Cmd.none )
 
         NewGame ->
-            ( { model | tiles = [] }
+            ( { model
+                | tiles = []
+                , score = 0
+                , nextTileKey = 1
+                , gameStatus = Playing
+              }
             , generateNewTile []
             )
 
@@ -150,11 +165,16 @@ update msg model =
             )
 
         AddTile tile ->
-            ( updateScores
+            ( updateScoresAndGameStatus
                 { model
                     | nextTileKey = model.nextTileKey + 1
                     , tiles = addTile tile model |> sortTilesByRowsCols
                 }
+            , Cmd.none
+            )
+
+        KeepGoing ->
+            ( { model | gameStatus = KeepPlaying }
             , Cmd.none
             )
 
@@ -202,16 +222,70 @@ addTile tile model =
     { tile | key = model.nextTileKey } :: List.map (\t -> { t | new = False }) model.tiles
 
 
-updateScores : Model -> Model
-updateScores model =
+updateScoresAndGameStatus : Model -> Model
+updateScoresAndGameStatus model =
     let
+        previousScore =
+            model.score
+
+        lastMoveScore =
+            List.filter (\t -> t.merged) model.tiles
+                |> List.map .value
+                |> List.foldl (+) 0
+
         score =
-            List.foldl (+) 0 <| List.map .value model.tiles
+            previousScore + lastMoveScore
     in
     { model
         | score = score
         , bestScore = max score model.bestScore
+        , gameStatus = gameStatus model.gameStatus previousScore score model.tiles
     }
+
+
+gameStatus : GameStatus -> Int -> Int -> List Tile -> GameStatus
+gameStatus status previousScore score tiles =
+    case status of
+        Playing ->
+            if any2048Tile tiles then
+                Won
+
+            else if List.length tiles == maximumNumberOfTiles then
+                if movePossible tiles then
+                    Playing
+
+                else
+                    Over
+
+            else
+                Playing
+
+        KeepPlaying ->
+            if List.length tiles == maximumNumberOfTiles then
+                if movePossible tiles then
+                    KeepPlaying
+
+                else
+                    Over
+
+            else
+                KeepPlaying
+
+        _ ->
+            status
+
+
+any2048Tile : List Tile -> Bool
+any2048Tile tiles =
+    List.any (\t -> t.value == 2048) tiles
+
+
+movePossible : List Tile -> Bool
+movePossible tiles =
+    List.length (moveUp tiles)
+        < maximumNumberOfTiles
+        || List.length (moveLeft tiles)
+        < maximumNumberOfTiles
 
 
 
@@ -520,7 +594,7 @@ view model =
             [ gameHeader model
             , aboveGame
             , div [ class "game-container" ]
-                [ gameMessage
+                [ gameMessage model
                 , gridContainer
                 , tileContainer model.tiles
                 ]
@@ -662,18 +736,56 @@ aboveGame =
         ]
 
 
-gameMessage : Html Msg
-gameMessage =
-    div [ class "game-message" ]
+gameMessage : Model -> Html Msg
+gameMessage model =
+    div [ class ("game-message" ++ gameStatusClassStr model) ]
         [ p []
-            []
+            [ text <| gameStatusMessage model ]
         , div [ class "lower" ]
-            [ a [ class "keep-playing-button" ]
+            [ button
+                [ class "keep-playing-button"
+                , onClick KeepGoing
+                ]
                 [ text "Keep going" ]
-            , a [ class "retry-button" ]
+            , button
+                [ class "retry-button"
+                , onClick NewGame
+                ]
                 [ text "Try again" ]
             ]
         ]
+
+
+gameStatusClassStr : Model -> String
+gameStatusClassStr m =
+    case m.gameStatus of
+        Playing ->
+            ""
+
+        KeepPlaying ->
+            ""
+
+        Over ->
+            " game-over "
+
+        Won ->
+            " game-won"
+
+
+gameStatusMessage : Model -> String
+gameStatusMessage m =
+    case m.gameStatus of
+        Playing ->
+            ""
+
+        KeepPlaying ->
+            ""
+
+        Over ->
+            "Game Over"
+
+        Won ->
+            "You Won"
 
 
 gameExplanation : Html none
