@@ -1,4 +1,4 @@
-module Main exposing (Model, Msg(..), init, main, update, view)
+module Main exposing (main)
 
 import Array
 import Browser
@@ -18,7 +18,51 @@ import Url
 
 
 
+---- PROGRAM ----
+
+
+main : Program () Model Msg
+main =
+    Browser.application
+        { init = init
+        , view = view
+        , update = update
+        , subscriptions = subscriptions
+        , onUrlChange = UrlChanged
+        , onUrlRequest = LinkClicked
+        }
+
+
+init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
+init flags url navKey =
+    ( initialModel url navKey, generateNewTile [] )
+
+
+
 ---- MODEL ----
+
+
+type alias Model =
+    { navKey : Nav.Key
+    , url : Url.Url
+    , tiles : List Tile
+    , score : Int
+    , bestScore : Int
+    , gameStatus : GameStatus
+    , nextTileKey : Int
+    }
+
+
+initialModel : Url.Url -> Nav.Key -> Model
+initialModel url navKey =
+    { url = url
+    , navKey = navKey
+    , tiles = []
+    , score = 0
+    , bestScore = 0
+    , gameStatus = Playing
+    , nextTileKey = 1
+    }
 
 
 type GameStatus
@@ -28,101 +72,53 @@ type GameStatus
     | KeepPlaying
 
 
-type alias Model =
-    { tiles : List Tile
-    , key : Nav.Key
-    , url : Url.Url
-    , score : Int
-    , bestScore : Int
-    , gameStatus : GameStatus
-    , nextTileKey : Int
-    }
-
-
-maximumNumberOfTiles : Int
-maximumNumberOfTiles =
-    16
-
-
 type alias Tile =
     { value : Int
     , row : Int
     , col : Int
-    , index : Int
+    , locIndex : Int
     , new : Bool
     , merged : Bool
     , key : Int
     }
 
 
-init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
-init flags url key =
-    ( initialModel url key, generateNewTile [] )
-
-
-initialModel : Url.Url -> Nav.Key -> Model
-initialModel url key =
-    { tiles = []
-    , url = url
-    , key = key
-    , score = 0
-    , bestScore = 0
-    , gameStatus = Playing
-    , nextTileKey = 1
-    }
+maxTiles : Int
+maxTiles =
+    16
 
 
 
---- Tile generation
+--- SUBSCRIPTIONS
 
 
-generateNewTile : List Tile -> Cmd Msg
-generateNewTile tiles =
-    if List.length tiles < maximumNumberOfTiles then
-        sortTilesByRowsCols tiles
-            |> emptyLocationIndices
-            |> newTileInEmptyLocation
-
-    else
-        Cmd.none
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    Events.onKeyDown keyDecoder
 
 
-newTileInEmptyLocation : Array.Array Int -> Cmd Msg
-newTileInEmptyLocation locationIndices =
-    Random.generate AddTile (tileGenerator locationIndices)
+keyDecoder : Json.Decoder Msg
+keyDecoder =
+    Json.map toDirectionMsg (Json.field "key" Json.string)
 
 
-tileGenerator : Array.Array Int -> Random.Generator Tile
-tileGenerator locationIndices =
-    Random.map2
-        (\indx num ->
-            Array.get (indx - 1) locationIndices
-                |> Maybe.withDefault 1
-                |> tileFromLocationIndex (valueFrom num)
-        )
-        (Random.int 1 (Array.length locationIndices))
-        (Random.float 0 1)
+toDirectionMsg : String -> Msg
+toDirectionMsg str =
+    case str of
+        "ArrowUp" ->
+            MoveUp
 
+        "ArrowDown" ->
+            MoveDown
 
-tileFromLocationIndex : Int -> Int -> Tile
-tileFromLocationIndex value indx =
-    { value = value
-    , row = (indx - 1) // 4 + 1
-    , col = remainderBy 4 (indx - 1) + 1
-    , index = indx
-    , new = True
-    , merged = False
-    , key = 0
-    }
+        "ArrowRight" ->
+            MoveRight
 
+        "ArrowLeft" ->
+            MoveLeft
 
-valueFrom : Float -> Int
-valueFrom num =
-    if num > 0.9 then
-        4
-
-    else
-        2
+        _ ->
+            NoOp
 
 
 
@@ -201,7 +197,7 @@ update msg model =
         LinkClicked urlRequest ->
             case urlRequest of
                 Browser.Internal url ->
-                    ( model, Nav.pushUrl model.key (Url.toString url) )
+                    ( model, Nav.pushUrl model.navKey (Url.toString url) )
 
                 Browser.External href ->
                     ( model, Nav.load href )
@@ -212,6 +208,10 @@ update msg model =
             )
 
 
+
+--- update: new tile helpers
+
+
 newTileLater : Cmd Msg
 newTileLater =
     Process.sleep 300 |> Task.perform (always NewTile)
@@ -220,6 +220,10 @@ newTileLater =
 addTile : Tile -> Model -> List Tile
 addTile tile model =
     { tile | key = model.nextTileKey } :: List.map (\t -> { t | new = False }) model.tiles
+
+
+
+--- update: score and status helpers
 
 
 updateScoresAndGameStatus : Model -> Model
@@ -250,7 +254,7 @@ gameStatus status previousScore score tiles =
             if any2048Tile tiles then
                 Won
 
-            else if List.length tiles == maximumNumberOfTiles then
+            else if List.length tiles == maxTiles then
                 if movePossible tiles then
                     Playing
 
@@ -261,7 +265,7 @@ gameStatus status previousScore score tiles =
                 Playing
 
         KeepPlaying ->
-            if List.length tiles == maximumNumberOfTiles then
+            if List.length tiles == maxTiles then
                 if movePossible tiles then
                     KeepPlaying
 
@@ -289,7 +293,89 @@ movePossible tiles =
 
 
 
---- Tile manipulation
+--- update: tile generation with random placement and value
+
+
+generateNewTile : List Tile -> Cmd Msg
+generateNewTile tiles =
+    if List.length tiles < maxTiles then
+        sortTilesByRowsCols tiles
+            |> emptyLocationIndices
+            |> newTileInEmptyLocation
+
+    else
+        Cmd.none
+
+
+newTileInEmptyLocation : Array.Array Int -> Cmd Msg
+newTileInEmptyLocation locationIndices =
+    Random.generate AddTile (tileGenerator locationIndices)
+
+
+tileGenerator : Array.Array Int -> Random.Generator Tile
+tileGenerator locationIndices =
+    Random.map2
+        (\indx num ->
+            Array.get (indx - 1) locationIndices
+                |> Maybe.withDefault 1
+                |> tileFromLocationIndex (valueFrom num)
+        )
+        (Random.int 1 (Array.length locationIndices))
+        (Random.float 0 1)
+
+
+tileFromLocationIndex : Int -> Int -> Tile
+tileFromLocationIndex value indx =
+    { value = value
+    , row = (indx - 1) // 4 + 1
+    , col = remainderBy 4 (indx - 1) + 1
+    , locIndex = indx
+    , new = True
+    , merged = False
+    , key = 0
+    }
+
+
+valueFrom : Float -> Int
+valueFrom num =
+    if num > 0.9 then
+        4
+
+    else
+        2
+
+
+
+-- create array of empty location indices
+-- used for randomly selecting location for new tile
+
+
+emptyLocationIndices : List Tile -> Array.Array Int
+emptyLocationIndices tiles =
+    if List.isEmpty tiles then
+        allIndicesSet
+            |> Set.toList
+            |> Array.fromList
+
+    else
+        Set.diff allIndicesSet (placedIndicesSet tiles)
+            |> Set.toList
+            |> Array.fromList
+
+
+placedIndicesSet : List Tile -> Set.Set Int
+placedIndicesSet tiles =
+    List.map .locIndex tiles
+        |> Set.fromList
+
+
+allIndicesSet : Set.Set Int
+allIndicesSet =
+    Set.fromList <| List.range 1 16
+
+
+
+--- update: tile movement
 
 
 removeMergedStatus : List Tile -> List Tile
@@ -308,14 +394,6 @@ moveUp tiles =
         |> sortTilesByRowsCols
 
 
-squashUp : List Tile -> List Tile
-squashUp tiles =
-    List.map2
-        (\t r -> { t | row = r })
-        tiles
-        (List.range 1 4)
-
-
 moveDown : List Tile -> List Tile
 moveDown tiles =
     removeMergedStatus tiles
@@ -325,14 +403,6 @@ moveDown tiles =
         |> List.map squashDown
         |> List.concat
         |> sortTilesByRowsCols
-
-
-squashDown : List Tile -> List Tile
-squashDown tiles =
-    List.map2
-        (\t r -> { t | row = r })
-        tiles
-        (List.reverse <| List.range 1 4)
 
 
 moveLeft : List Tile -> List Tile
@@ -346,14 +416,6 @@ moveLeft tiles =
         |> sortTilesByRowsCols
 
 
-squashLeft : List Tile -> List Tile
-squashLeft tiles =
-    List.map2
-        (\t c -> { t | col = c })
-        tiles
-        (List.range 1 4)
-
-
 moveRight : List Tile -> List Tile
 moveRight tiles =
     removeMergedStatus tiles
@@ -363,6 +425,30 @@ moveRight tiles =
         |> List.map squashRight
         |> List.concat
         |> sortTilesByRowsCols
+
+
+squashUp : List Tile -> List Tile
+squashUp tiles =
+    List.map2
+        (\t r -> { t | row = r })
+        tiles
+        (List.range 1 4)
+
+
+squashDown : List Tile -> List Tile
+squashDown tiles =
+    List.map2
+        (\t r -> { t | row = r })
+        tiles
+        (List.reverse <| List.range 1 4)
+
+
+squashLeft : List Tile -> List Tile
+squashLeft tiles =
+    List.map2
+        (\t c -> { t | col = c })
+        tiles
+        (List.range 1 4)
 
 
 squashRight : List Tile -> List Tile
@@ -410,35 +496,7 @@ mergeTilesHelp checked t1 t2 rest =
 
 
 
--- Generate Array of empty location indices
-
-
-emptyLocationIndices : List Tile -> Array.Array Int
-emptyLocationIndices tiles =
-    if List.isEmpty tiles then
-        allIndicesSet
-            |> Set.toList
-            |> Array.fromList
-
-    else
-        Set.diff allIndicesSet (placedIndicesSet tiles)
-            |> Set.toList
-            |> Array.fromList
-
-
-placedIndicesSet : List Tile -> Set.Set Int
-placedIndicesSet tiles =
-    List.map .index tiles
-        |> Set.fromList
-
-
-allIndicesSet : Set.Set Int
-allIndicesSet =
-    Set.fromList <| List.range 1 16
-
-
-
---- Sorting list of tiles
+--- update: sorting tiles into lists of columns or rows
 
 
 type SortDirection
@@ -517,7 +575,7 @@ rowOrder t1 t2 =
 sortTilesByRowsCols : List Tile -> List Tile
 sortTilesByRowsCols tiles =
     List.sortWith rowColOrder tiles
-        |> List.map (\t -> { t | index = rowIndex t.row t.col })
+        |> List.map (\t -> { t | locIndex = rowIndex t.row t.col })
 
 
 rowColOrder : Tile -> Tile -> Order
@@ -542,44 +600,6 @@ rowColOrder t1 t2 =
 rowIndex : Int -> Int -> Int
 rowIndex row col =
     col + (row - 1) * 4
-
-
-colIndex : Int -> Int -> Int
-colIndex row col =
-    row + (col - 1) * 4
-
-
-
---- SUBSCRIPTIONS
-
-
-subscriptions : Model -> Sub Msg
-subscriptions model =
-    Events.onKeyDown keyDecoder
-
-
-keyDecoder : Json.Decoder Msg
-keyDecoder =
-    Json.map toDirection (Json.field "key" Json.string)
-
-
-toDirection : String -> Msg
-toDirection str =
-    case str of
-        "ArrowUp" ->
-            MoveUp
-
-        "ArrowDown" ->
-            MoveDown
-
-        "ArrowRight" ->
-            MoveRight
-
-        "ArrowLeft" ->
-            MoveLeft
-
-        _ ->
-            NoOp
 
 
 
@@ -609,7 +629,35 @@ view model =
 
 
 
---- Tiles
+--- view: playing grid
+
+
+gridContainer : Html none
+gridContainer =
+    div [ class "grid-container" ]
+        [ gridRow
+        , gridRow
+        , gridRow
+        , gridRow
+        ]
+
+
+gridRow : Html none
+gridRow =
+    div [ class "grid-row" ]
+        [ div [ class "grid-cell" ]
+            []
+        , div [ class "grid-cell" ]
+            []
+        , div [ class "grid-cell" ]
+            []
+        , div [ class "grid-cell" ]
+            []
+        ]
+
+
+
+--- view: tile container and tiles
 
 
 tileContainer : List Tile -> Html msg
@@ -675,35 +723,7 @@ mergedTileClassStr t =
 
 
 
---- Playing grid
-
-
-gridContainer : Html none
-gridContainer =
-    div [ class "grid-container" ]
-        [ gridRow
-        , gridRow
-        , gridRow
-        , gridRow
-        ]
-
-
-gridRow : Html none
-gridRow =
-    div [ class "grid-row" ]
-        [ div [ class "grid-cell" ]
-            []
-        , div [ class "grid-cell" ]
-            []
-        , div [ class "grid-cell" ]
-            []
-        , div [ class "grid-cell" ]
-            []
-        ]
-
-
-
---- Above and below the playing area
+--- view: above the game playing area
 
 
 gameHeader : Model -> Html Msg
@@ -734,6 +754,10 @@ aboveGame =
             ]
             [ text "New Game" ]
         ]
+
+
+
+--- view: over the game area -- displayed when game over or won
 
 
 gameMessage : Model -> Html Msg
@@ -788,6 +812,10 @@ gameStatusMessage m =
             "You Won"
 
 
+
+--- view: below the game playing area
+
+
 gameExplanation : Html none
 gameExplanation =
     p [ class "game-explanation" ]
@@ -840,19 +868,3 @@ divider : Html none
 divider =
     hr []
         []
-
-
-
----- PROGRAM ----
-
-
-main : Program () Model Msg
-main =
-    Browser.application
-        { init = init
-        , view = view
-        , update = update
-        , subscriptions = subscriptions
-        , onUrlChange = UrlChanged
-        , onUrlRequest = LinkClicked
-        }
