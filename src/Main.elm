@@ -1,4 +1,4 @@
-module Main exposing (main)
+port module Main exposing (main)
 
 import Array
 import Browser
@@ -9,7 +9,8 @@ import Html.Attributes exposing (class, href, id, src, target)
 import Html.Events exposing (custom, on, onClick)
 import Html.Keyed as Keyed
 import Html.Lazy exposing (lazy)
-import Json.Decode as Json
+import Json.Decode as Decode
+import Json.Encode as Encode
 import Process
 import Random
 import Set
@@ -21,7 +22,7 @@ import Url
 ---- PROGRAM ----
 
 
-main : Program () Model Msg
+main : Program Decode.Value Model Msg
 main =
     Browser.application
         { init = init
@@ -33,9 +34,9 @@ main =
         }
 
 
-init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
+init : Decode.Value -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url navKey =
-    ( initialModel url navKey, generateNewTile [] )
+    ( initialModel flags url navKey, generateNewTile [] )
 
 
 
@@ -53,16 +54,50 @@ type alias Model =
     }
 
 
-initialModel : Url.Url -> Nav.Key -> Model
-initialModel url navKey =
+initialModel : Decode.Value -> Url.Url -> Nav.Key -> Model
+initialModel flags url navKey =
+    let
+        gs =
+            parseGameState flags
+    in
     { url = url
     , navKey = navKey
     , tiles = []
     , score = 0
-    , bestScore = 0
+    , bestScore = gs.bestScore
     , gameStatus = Playing
     , nextTileKey = 1
     }
+
+
+type alias GameState =
+    { bestScore : Int }
+
+
+parseGameState : Decode.Value -> GameState
+parseGameState flags =
+    case decodeGameState flags of
+        Ok gameState ->
+            gameState
+
+        Err e ->
+            defaultGameState
+
+
+decodeGameState : Decode.Value -> Result Decode.Error GameState
+decodeGameState flags =
+    Decode.decodeValue gameStateDecoder flags
+
+
+gameStateDecoder : Decode.Decoder GameState
+gameStateDecoder =
+    Decode.map GameState
+        (Decode.field "bestScore" Decode.int)
+
+
+defaultGameState : GameState
+defaultGameState =
+    { bestScore = 17 }
 
 
 type GameStatus
@@ -89,17 +124,31 @@ maxTiles =
 
 
 
+--- PORTS
+
+
+port cacheData : Encode.Value -> Cmd msg
+
+
+saveBestScore : Model -> Cmd Msg
+saveBestScore model =
+    cacheData (Encode.object [ ( "bestScore", Encode.int model.bestScore ) ])
+
+
+
 --- SUBSCRIPTIONS
 
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Events.onKeyDown keyDecoder
+    Sub.batch
+        [ Events.onKeyDown keyDecoder
+        ]
 
 
-keyDecoder : Json.Decoder Msg
+keyDecoder : Decode.Decoder Msg
 keyDecoder =
-    Json.map toDirectionMsg (Json.field "key" Json.string)
+    Decode.map toDirectionMsg (Decode.field "key" Decode.string)
 
 
 toDirectionMsg : String -> Msg
@@ -152,7 +201,10 @@ update msg model =
                 , nextTileKey = 1
                 , gameStatus = Playing
               }
-            , generateNewTile []
+            , Cmd.batch
+                [ generateNewTile []
+                , saveBestScore model
+                ]
             )
 
         NewTile ->
@@ -166,7 +218,7 @@ update msg model =
                     | nextTileKey = model.nextTileKey + 1
                     , tiles = addTile tile model |> sortTilesByRowsCols
                 }
-            , Cmd.none
+            , saveBestScore model
             )
 
         KeepGoing ->
