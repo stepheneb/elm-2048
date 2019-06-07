@@ -114,6 +114,7 @@ type alias Tile =
     , locIndex : Int
     , new : Bool
     , merged : Bool
+    , moved : Bool
     , key : Int
     }
 
@@ -227,23 +228,39 @@ update msg model =
             )
 
         MoveUp ->
-            ( { model | tiles = moveUp model.tiles }
-            , newTileLater
+            let
+                newTiles =
+                    moveUp model.tiles
+            in
+            ( { model | tiles = newTiles }
+            , newTileLaterIfTilesChanged newTiles
             )
 
         MoveDown ->
-            ( { model | tiles = moveDown model.tiles }
-            , newTileLater
+            let
+                newTiles =
+                    moveDown model.tiles
+            in
+            ( { model | tiles = newTiles }
+            , newTileLaterIfTilesChanged newTiles
             )
 
         MoveLeft ->
-            ( { model | tiles = moveLeft model.tiles }
-            , newTileLater
+            let
+                newTiles =
+                    moveLeft model.tiles
+            in
+            ( { model | tiles = newTiles }
+            , newTileLaterIfTilesChanged newTiles
             )
 
         MoveRight ->
-            ( { model | tiles = moveRight model.tiles }
-            , newTileLater
+            let
+                newTiles =
+                    moveRight model.tiles
+            in
+            ( { model | tiles = newTiles }
+            , newTileLaterIfTilesChanged newTiles
             )
 
         LinkClicked urlRequest ->
@@ -264,14 +281,23 @@ update msg model =
 --- update: new tile helpers
 
 
-newTileLater : Cmd Msg
-newTileLater =
-    Process.sleep 300 |> Task.perform (always NewTile)
+newTileLaterIfTilesChanged : List Tile -> Cmd Msg
+newTileLaterIfTilesChanged tiles =
+    let
+        changed =
+            List.any (\t -> t.moved || t.merged) tiles
+    in
+    if changed then
+        Process.sleep 300 |> Task.perform (always NewTile)
+
+    else
+        Cmd.none
 
 
 addTile : Tile -> Model -> List Tile
 addTile tile model =
-    { tile | key = model.nextTileKey } :: List.map (\t -> { t | new = False }) model.tiles
+    { tile | key = model.nextTileKey }
+        :: changeTiles (notNew >> notMoved) model.tiles
 
 
 
@@ -389,6 +415,7 @@ tileFromLocationIndex value indx =
     , locIndex = indx
     , new = True
     , merged = False
+    , moved = False
     , key = 0
     }
 
@@ -440,9 +467,32 @@ changeTiles func tiles =
     List.map func tiles
 
 
+notNew : Tile -> Tile
+notNew tile =
+    { tile | new = False }
+
+
 notMerged : Tile -> Tile
 notMerged tile =
     { tile | merged = False }
+
+
+notMoved : Tile -> Tile
+notMoved tile =
+    { tile | moved = False }
+
+
+maybeMoveTile : Tile -> Int -> Int -> Tile
+maybeMoveTile t c r =
+    let
+        newpos =
+            t.col /= c || t.row /= r
+    in
+    if newpos then
+        { t | col = c, row = r, moved = True }
+
+    else
+        t
 
 
 moveUp : List Tile -> List Tile
@@ -450,11 +500,11 @@ moveUp tiles =
     let
         squashUp tilelist =
             List.map2
-                (\t r -> { t | row = r })
+                (\t r -> maybeMoveTile t t.col r)
                 tilelist
                 (List.range 1 4)
     in
-    changeTiles notMerged tiles
+    changeTiles (notMerged >> notMoved) tiles
         |> tilesInColumns Normal
         |> List.map squashUp
         |> List.map mergeTiles
@@ -468,11 +518,11 @@ moveDown tiles =
     let
         squashDown tilelist =
             List.map2
-                (\t r -> { t | row = r })
+                (\t r -> maybeMoveTile t t.col r)
                 tilelist
                 (List.reverse <| List.range 1 4)
     in
-    changeTiles notMerged tiles
+    changeTiles (notMerged >> notMoved) tiles
         |> tilesInColumns Reversed
         |> List.map squashDown
         |> List.map mergeTiles
@@ -486,11 +536,11 @@ moveLeft tiles =
     let
         squashLeft tilelist =
             List.map2
-                (\t c -> { t | col = c })
+                (\t c -> maybeMoveTile t c t.row)
                 tilelist
                 (List.range 1 4)
     in
-    changeTiles notMerged tiles
+    changeTiles (notMerged >> notMoved) tiles
         |> tilesInRows Normal
         |> List.map squashLeft
         |> List.map mergeTiles
@@ -504,11 +554,11 @@ moveRight tiles =
     let
         squashRight tilelist =
             List.map2
-                (\t c -> { t | col = c })
+                (\t c -> maybeMoveTile t c t.row)
                 tilelist
                 (List.reverse <| List.range 1 4)
     in
-    changeTiles notMerged tiles
+    changeTiles (notMerged >> notMoved) tiles
         |> tilesInRows Reversed
         |> List.map squashRight
         |> List.map mergeTiles
