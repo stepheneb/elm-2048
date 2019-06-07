@@ -131,9 +131,9 @@ maxTiles =
 port cacheData : Encode.Value -> Cmd msg
 
 
-saveBestScore : Model -> Cmd Msg
-saveBestScore model =
-    cacheData (Encode.object [ ( "bestScore", Encode.int model.bestScore ) ])
+saveBestScore : Int -> Cmd Msg
+saveBestScore bestScore =
+    cacheData (Encode.object [ ( "bestScore", Encode.int bestScore ) ])
 
 
 
@@ -202,10 +202,7 @@ update msg model =
                 , nextTileKey = 1
                 , gameStatus = Playing
               }
-            , Cmd.batch
-                [ generateNewTile []
-                , saveBestScore model
-                ]
+            , generateNewTile []
             )
 
         NewTile ->
@@ -219,7 +216,7 @@ update msg model =
                     | nextTileKey = model.nextTileKey + 1
                     , tiles = addTile tile model |> sortTilesByRowsCols
                 }
-            , saveBestScore model
+            , saveBestScore model.bestScore
             )
 
         KeepGoing ->
