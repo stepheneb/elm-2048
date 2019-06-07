@@ -579,10 +579,14 @@ mergeTiles tiles =
 
 mergeTilesHelp : List Tile -> Tile -> Tile -> List Tile -> List Tile
 mergeTilesHelp checked t1 t2 rest =
+    let
+        merge t =
+            { t | value = t.value * 2, merged = True }
+    in
     case rest of
         t3 :: t4 :: ts ->
             if t1.value == t2.value then
-                mergeTilesHelp ({ t1 | value = t1.value * 2, merged = True } :: checked) t3 t4 ts
+                mergeTilesHelp (merge t2 :: checked) t3 t4 ts
 
             else
                 mergeTilesHelp (t1 :: checked) t2 t3 (t4 :: ts)
@@ -590,14 +594,14 @@ mergeTilesHelp checked t1 t2 rest =
         [ t3 ] ->
             if t1.value == t2.value then
                 List.reverse
-                    (t3 :: { t1 | value = t1.value * 2, merged = True } :: checked)
+                    (t3 :: merge t2 :: checked)
 
             else
                 mergeTilesHelp (t1 :: checked) t2 t3 []
 
         [] ->
             if t1.value == t2.value then
-                List.reverse ({ t1 | value = t1.value * 2, merged = True } :: checked)
+                List.reverse (merge t2 :: checked)
 
             else
                 List.reverse (t2 :: t1 :: checked)
