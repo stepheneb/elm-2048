@@ -288,7 +288,7 @@ newTileLaterIfTilesChanged tiles =
             List.any (\t -> t.moved || t.merged) tiles
     in
     if changed then
-        Process.sleep 300 |> Task.perform (always NewTile)
+        Process.sleep 200 |> Task.perform (always NewTile)
 
     else
         Cmd.none

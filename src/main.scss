@@ -20,7 +20,7 @@ $tile-gold-glow-color: lighten($tile-gold-color, 15%);
 $game-container-margin-top: 40px;
 $game-container-background: #bbada0;
 
-$transition-speed: 300ms;
+$transition-speed: 150ms;
 
 /*
   elm-hot creates an additional div wrapper around the app to make HMR possible.
