@@ -203,14 +203,22 @@ fromResult result =
 
 
 --- PORTS
+--- incoming: touch swipe events turned into <arrow-key> Strings
 
 
-port cacheData : Encode.Value -> Cmd msg
+port swipeDirectionArrow : (String -> msg) -> Sub msg
+
+
+
+--- outgoing: GameState
+
+
+port cacheGameState : Encode.Value -> Cmd msg
 
 
 saveGameState : GameState -> Cmd Msg
 saveGameState gs =
-    cacheData (gameStateEncoder gs)
+    cacheGameState (gameStateEncoder gs)
 
 
 gameStateEncoder : GameState -> Encode.Value
@@ -271,6 +279,7 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
         [ Events.onKeyDown keyDecoder
+        , swipeDirectionArrow toDirectionMsg
         ]
 
 

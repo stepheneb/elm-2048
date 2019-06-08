@@ -1,6 +1,7 @@
 import './main.css';
 import { Elm } from './Main.elm';
 import registerServiceWorker from './registerServiceWorker';
+import touchInputManager from './touchInputManager';
 
 //  localStorage
 const storageKey = "elm2048";
@@ -16,14 +17,15 @@ var app = Elm.Main.init({
   flags: gameState
 });
 
-app.ports.cacheData.subscribe(function(data) {
+app.ports.cacheGameState.subscribe(function (data) {
   setItem(data);
 });
 
 registerServiceWorker();
+touchInputManager(app);
 
 window.addEventListener("keydown", event => {
-  if(event.key.includes("Arrow")){
+  if (event.key.includes("Arrow")) {
     event.preventDefault()
   }
 })
