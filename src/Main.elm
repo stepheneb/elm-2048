@@ -455,7 +455,7 @@ newTileLaterIfTilesChanged tiles =
             List.any (\t -> t.moved || t.merged) tiles
     in
     if changed then
-        Process.sleep 200 |> Task.perform (always NewTile)
+        Process.sleep 100 |> Task.perform (always NewTile)
 
     else
         Cmd.none
@@ -974,7 +974,7 @@ tileClassStr t =
                     ++ String.fromInt t.row
                 ]
     in
-    classStr ++ newTileClassStr t ++ mergedTileClassStr t
+    classStr ++ newTileClassStr t ++ mergedTileClassStr t ++ superTileClassStr t
 
 
 newTileClassStr : Tile -> String
@@ -992,6 +992,16 @@ mergedTileClassStr t =
     case t.merged of
         True ->
             " tile-merged "
+
+        False ->
+            ""
+
+
+superTileClassStr : Tile -> String
+superTileClassStr t =
+    case t.value > 2048 of
+        True ->
+            " tile-super "
 
         False ->
             ""
@@ -1099,7 +1109,8 @@ gameExplanation =
         , text "Use your "
         , strong []
             [ text "arrow keys" ]
-        , text " to move the tiles. When two tiles with the same number touch, they "
+        , text " or swipe on a touch screen to move the tiles. "
+        , text "When two tiles with the same number touch, they "
         , strong []
             [ text "merge into one!" ]
         ]
@@ -1107,7 +1118,7 @@ gameExplanation =
 
 gameNotes : Html none
 gameNotes =
-    p []
+    p [ class "game-explanation" ]
         [ strong [ class "important" ]
             [ text "Note: " ]
         , text "This is not the official version of 2048! It is an "
@@ -1126,7 +1137,7 @@ gameNotes =
 
 gameFooter : Html none
 gameFooter =
-    p []
+    p [ class "game-explanation" ]
         [ text "Original 2048 created by "
         , a [ href "http://gabrielecirulli.com", target "_blank" ]
             [ text "Gabriele Cirulli. " ]

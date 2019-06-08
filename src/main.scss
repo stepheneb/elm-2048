@@ -13,14 +13,14 @@ $mobile-threshold: $field-width + 20px;
 $text-color: #776e65;
 $bright-text-color: #f9f6f2;
 
-$tile-color: #eee4da;
-$tile-gold-color: #edc22e;
+$tile-color: saturate(#eee4da, 10%);
+$tile-gold-color: saturate(#edc22e, 5%);
 $tile-gold-glow-color: lighten($tile-gold-color, 15%);
 
 $game-container-margin-top: 40px;
 $game-container-background: #bbada0;
 
-$transition-speed: 150ms;
+$transition-speed: 100ms;
 
 /*
   elm-hot creates an additional div wrapper around the app to make HMR possible.
@@ -50,6 +50,7 @@ body {
 
 .heading {
   @include clearfix;
+  width: $field-width;
 }
 
 h1.title {
@@ -409,7 +410,7 @@ hr {
       }
 
       // Set background
-      background: $mixed-background;
+      background: saturate($mixed-background, 10%);
 
       // Add glow
       $glow-opacity: max($exponent - 4, 0) / ($limit - 4);
@@ -462,6 +463,16 @@ hr {
     @include transform(scale(0));
   }
 
+  10% {
+    opacity: 0.8;
+    @include transform(scale(0.9));
+  }
+
+  30% {
+    opacity: 0.9;
+    @include transform(scale(0.95));
+  }
+
   100% {
     opacity: 1;
     @include transform(scale(1));
@@ -478,8 +489,12 @@ hr {
     @include transform(scale(0));
   }
 
+  10% {
+    @include transform(scale(0.9));
+  }
+
   50% {
-    @include transform(scale(1.2));
+    @include transform(scale(1));
   }
 
   100% {
@@ -495,6 +510,7 @@ hr {
 
 .above-game {
   @include clearfix;
+  width: $field-width;
 }
 
 .game-intro {
@@ -512,6 +528,7 @@ hr {
 
 .game-explanation {
   margin-top: 50px;
+  width: $field-width;
 }
 
 @include smaller($mobile-threshold) {
@@ -531,7 +548,7 @@ hr {
 
   body {
     margin: 20px 0;
-    padding: 0 20px;
+    padding: 0 0px;
   }
 
   h1.title {
