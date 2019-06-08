@@ -36,7 +36,20 @@ main =
 
 init : Decode.Value -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url navKey =
-    ( initialModel flags url navKey, generateNewTile [] )
+    let
+        model =
+            initialModel flags url navKey
+    in
+    ( model, startGame model )
+
+
+startGame : Model -> Cmd Msg
+startGame model =
+    if List.length model.gs.tiles < 2 then
+        generateNewTile model.gs.tiles
+
+    else
+        Cmd.none
 
 
 
@@ -46,61 +59,20 @@ init flags url navKey =
 type alias Model =
     { navKey : Nav.Key
     , url : Url.Url
-    , tiles : List Tile
-    , score : Int
-    , bestScore : Int
-    , gameStatus : GameStatus
-    , nextTileKey : Int
-    }
-
-
-initialModel : Decode.Value -> Url.Url -> Nav.Key -> Model
-initialModel flags url navKey =
-    let
-        gs =
-            parseGameState flags
-    in
-    { url = url
-    , navKey = navKey
-    , tiles = []
-    , score = 0
-    , bestScore = gs.bestScore
-    , gameStatus = Playing
-    , nextTileKey = 1
+    , gs : GameState
     }
 
 
 type alias GameState =
-    { bestScore : Int }
+    { tiles : List Tile
+    , score : Int
+    , bestScore : Int
+    , status : Status
+    , nextTileKey : Int
+    }
 
 
-parseGameState : Decode.Value -> GameState
-parseGameState flags =
-    case decodeGameState flags of
-        Ok gameState ->
-            gameState
-
-        Err e ->
-            defaultGameState
-
-
-decodeGameState : Decode.Value -> Result Decode.Error GameState
-decodeGameState flags =
-    Decode.decodeValue gameStateDecoder flags
-
-
-gameStateDecoder : Decode.Decoder GameState
-gameStateDecoder =
-    Decode.map GameState
-        (Decode.field "bestScore" Decode.int)
-
-
-defaultGameState : GameState
-defaultGameState =
-    { bestScore = 17 }
-
-
-type GameStatus
+type Status
     = Playing
     | Over
     | Won
@@ -124,6 +96,111 @@ maxTiles =
     16
 
 
+initialModel : Decode.Value -> Url.Url -> Nav.Key -> Model
+initialModel flags url navKey =
+    { url = url
+    , navKey = navKey
+    , gs = parseGameState flags
+    }
+
+
+
+--- Decoding saved GameState
+--- Parsing JSON GameState loaded through flags
+
+
+parseGameState : Decode.Value -> GameState
+parseGameState flags =
+    case decodeGameState flags of
+        Ok gameState ->
+            gameState
+
+        Err e ->
+            defaultGameState
+
+
+defaultGameState : GameState
+defaultGameState =
+    { tiles = []
+    , score = 0
+    , bestScore = 0
+    , status = Playing
+    , nextTileKey = 1
+    }
+
+
+
+--- Decoding JSON GameState
+
+
+decodeGameState : Decode.Value -> Result Decode.Error GameState
+decodeGameState flags =
+    Decode.decodeValue gameStateDecoder flags
+
+
+gameStateDecoder : Decode.Decoder GameState
+gameStateDecoder =
+    Decode.map5 GameState
+        (Decode.field "tiles" tileListDecoder)
+        (Decode.field "score" Decode.int)
+        (Decode.field "bestScore" Decode.int)
+        (Decode.field "status" statusDecoder)
+        (Decode.field "nextTileKey" Decode.int)
+
+
+tileListDecoder : Decode.Decoder (List Tile)
+tileListDecoder =
+    Decode.list tileDecoder
+
+
+tileDecoder : Decode.Decoder Tile
+tileDecoder =
+    Decode.map8 Tile
+        (Decode.field "value" Decode.int)
+        (Decode.field "row" Decode.int)
+        (Decode.field "col" Decode.int)
+        (Decode.field "locIndex" Decode.int)
+        (Decode.field "new" Decode.bool)
+        (Decode.field "merged" Decode.bool)
+        (Decode.field "moved" Decode.bool)
+        (Decode.field "key" Decode.int)
+
+
+statusDecoder : Decode.Decoder Status
+statusDecoder =
+    Decode.string
+        |> Decode.andThen (fromResult << parseStatus)
+
+
+parseStatus : String -> Result String Status
+parseStatus string =
+    case string of
+        "Playing" ->
+            Ok Playing
+
+        "Over" ->
+            Ok Over
+
+        "Won" ->
+            Ok Won
+
+        "KeepPlaying" ->
+            Ok KeepPlaying
+
+        _ ->
+            Err ("Invalid status: " ++ string)
+
+
+fromResult : Result String a -> Decode.Decoder a
+fromResult result =
+    case result of
+        Ok a ->
+            Decode.succeed a
+
+        Err errorMessage ->
+            Decode.fail errorMessage
+
+
 
 --- PORTS
 
@@ -131,9 +208,59 @@ maxTiles =
 port cacheData : Encode.Value -> Cmd msg
 
 
-saveBestScore : Int -> Cmd Msg
-saveBestScore bestScore =
-    cacheData (Encode.object [ ( "bestScore", Encode.int bestScore ) ])
+saveGameState : GameState -> Cmd Msg
+saveGameState gs =
+    cacheData (gameStateEncoder gs)
+
+
+gameStateEncoder : GameState -> Encode.Value
+gameStateEncoder gs =
+    Encode.object
+        [ ( "tiles", tilesEncoder gs.tiles )
+        , ( "score", Encode.int gs.score )
+        , ( "bestScore", Encode.int gs.bestScore )
+        , ( "status", gameStatusEncoder gs.status )
+        , ( "nextTileKey", Encode.int gs.nextTileKey )
+        ]
+
+
+gameStatusEncoder : Status -> Encode.Value
+gameStatusEncoder status =
+    let
+        statusToStr =
+            case status of
+                Playing ->
+                    "Playing"
+
+                Over ->
+                    "Over"
+
+                Won ->
+                    "Won"
+
+                KeepPlaying ->
+                    "KeepPlaying"
+    in
+    Encode.string statusToStr
+
+
+tilesEncoder : List Tile -> Encode.Value
+tilesEncoder tiles =
+    Encode.list tileEncoder tiles
+
+
+tileEncoder : Tile -> Encode.Value
+tileEncoder tile =
+    Encode.object
+        [ ( "value", Encode.int tile.value )
+        , ( "row", Encode.int tile.row )
+        , ( "col", Encode.int tile.col )
+        , ( "locIndex", Encode.int tile.locIndex )
+        , ( "new", Encode.bool tile.merged )
+        , ( "merged", Encode.bool tile.merged )
+        , ( "moved", Encode.bool tile.moved )
+        , ( "key", Encode.int tile.key )
+        ]
 
 
 
@@ -196,68 +323,93 @@ update msg model =
             ( model, Cmd.none )
 
         NewGame ->
-            ( { model
-                | tiles = []
-                , score = 0
-                , nextTileKey = 1
-                , gameStatus = Playing
-              }
-            , generateNewTile []
+            let
+                gs =
+                    model.gs
+
+                newGs =
+                    { gs
+                        | tiles = []
+                        , score = 0
+                        , nextTileKey = 1
+                        , status = Playing
+                    }
+            in
+            ( { model | gs = newGs }
+            , generateNewTile newGs.tiles
             )
 
         NewTile ->
             ( model
-            , generateNewTile model.tiles
+            , generateNewTile model.gs.tiles
             )
 
         AddTile tile ->
-            ( updateScoresAndGameStatus
-                { model
-                    | nextTileKey = model.nextTileKey + 1
-                    , tiles = addTile tile model |> sortTilesByRowsCols
-                }
-            , saveBestScore model.bestScore
+            let
+                gs =
+                    model.gs
+
+                newGs =
+                    updateScoresAndGameStatus
+                        { gs
+                            | nextTileKey = gs.nextTileKey + 1
+                            , tiles = addTile tile gs |> sortTilesByRowsCols
+                        }
+            in
+            ( { model | gs = newGs }
+            , if List.length newGs.tiles < 2 then
+                generateNewTile newGs.tiles
+
+              else
+                saveGameState newGs
             )
 
         KeepGoing ->
-            ( { model | gameStatus = KeepPlaying }
-            , Cmd.none
+            let
+                gs =
+                    model.gs
+
+                newGs =
+                    { gs | status = KeepPlaying }
+            in
+            ( { model | gs = newGs }
+            , saveGameState newGs
             )
 
         MoveUp ->
             let
-                newTiles =
-                    moveUp model.tiles
+                newGs =
+                    updateGameState model.gs moveUp
             in
-            ( { model | tiles = newTiles }
-            , newTileLaterIfTilesChanged newTiles
+            ( { model | gs = newGs }
+            , newTileLaterIfTilesChanged newGs.tiles
             )
 
         MoveDown ->
             let
-                newTiles =
-                    moveDown model.tiles
+                newGs =
+                    updateGameState model.gs moveDown
             in
-            ( { model | tiles = newTiles }
-            , newTileLaterIfTilesChanged newTiles
+            ( { model | gs = newGs }
+            , newTileLaterIfTilesChanged newGs.tiles
             )
 
         MoveLeft ->
             let
-                newTiles =
-                    moveLeft model.tiles
+                newGs =
+                    updateGameState model.gs moveLeft
             in
-            ( { model | tiles = newTiles }
-            , newTileLaterIfTilesChanged newTiles
+            ( { model | gs = newGs }
+            , newTileLaterIfTilesChanged newGs.tiles
             )
 
         MoveRight ->
             let
-                newTiles =
-                    moveRight model.tiles
+                newGs =
+                    updateGameState model.gs moveRight
             in
-            ( { model | tiles = newTiles }
-            , newTileLaterIfTilesChanged newTiles
+            ( { model | gs = newGs }
+            , newTileLaterIfTilesChanged newGs.tiles
             )
 
         LinkClicked urlRequest ->
@@ -272,6 +424,15 @@ update msg model =
             ( { model | url = url }
             , Cmd.none
             )
+
+
+
+--- update: move tiles helper
+
+
+updateGameState : GameState -> (List Tile -> List Tile) -> GameState
+updateGameState gs func =
+    { gs | tiles = func gs.tiles }
 
 
 
@@ -291,50 +452,50 @@ newTileLaterIfTilesChanged tiles =
         Cmd.none
 
 
-addTile : Tile -> Model -> List Tile
-addTile tile model =
-    { tile | key = model.nextTileKey }
-        :: changeTiles (notNew >> notMoved) model.tiles
+addTile : Tile -> GameState -> List Tile
+addTile tile gs =
+    { tile | key = gs.nextTileKey }
+        :: changeTiles (notNew >> notMoved) gs.tiles
 
 
 
 --- update: score and status helpers
 
 
-updateScoresAndGameStatus : Model -> Model
-updateScoresAndGameStatus model =
+updateScoresAndGameStatus : GameState -> GameState
+updateScoresAndGameStatus gs =
     let
         lastMoveScore =
-            List.filter (\t -> t.merged) model.tiles
+            List.filter (\t -> t.merged) gs.tiles
                 |> List.map .value
                 |> List.foldl (+) 0
 
         score =
-            model.score + lastMoveScore
+            gs.score + lastMoveScore
     in
-    { model
+    { gs
         | score = score
-        , bestScore = max score model.bestScore
-        , gameStatus = gameStatus model
+        , bestScore = max score gs.bestScore
+        , status = gameStatus gs
     }
 
 
-gameStatus : Model -> GameStatus
-gameStatus model =
+gameStatus : GameState -> Status
+gameStatus gs =
     let
         gridFull =
-            List.length model.tiles == maxTiles
+            List.length gs.tiles == maxTiles
 
         any2048Tile =
-            List.any (.value >> (==) 2048) model.tiles
+            List.any (.value >> (==) 2048) gs.tiles
     in
-    case model.gameStatus of
+    case gs.status of
         Playing ->
             if any2048Tile then
                 Won
 
             else if gridFull then
-                if movePossible model.tiles then
+                if movePossible gs.tiles then
                     Playing
 
                 else
@@ -345,7 +506,7 @@ gameStatus model =
 
         KeepPlaying ->
             if gridFull then
-                if movePossible model.tiles then
+                if movePossible gs.tiles then
                     KeepPlaying
 
                 else
@@ -355,7 +516,7 @@ gameStatus model =
                 KeepPlaying
 
         _ ->
-            model.gameStatus
+            gs.status
 
 
 movePossible : List Tile -> Bool
@@ -427,8 +588,7 @@ valueFrom num =
 
 
 
--- create array of empty location indices
--- used for randomly selecting location for new tile
+--- update: helpers for finding empty locations for new tiles
 
 
 emptyLocationIndices : List Tile -> Array.Array Int
@@ -479,17 +639,8 @@ notMoved tile =
     { tile | moved = False }
 
 
-maybeMoveTile : Tile -> Int -> Int -> Tile
-maybeMoveTile t c r =
-    let
-        newpos =
-            t.col /= c || t.row /= r
-    in
-    if newpos then
-        { t | col = c, row = r, moved = True }
 
-    else
-        t
+--- update: tile movement
 
 
 moveUp : List Tile -> List Tile
@@ -562,6 +713,19 @@ moveRight tiles =
         |> List.map squashRight
         |> List.concat
         |> sortTilesByRowsCols
+
+
+maybeMoveTile : Tile -> Int -> Int -> Tile
+maybeMoveTile t c r =
+    let
+        newpos =
+            t.col /= c || t.row /= r
+    in
+    if newpos then
+        { t | col = c, row = r, moved = True }
+
+    else
+        t
 
 
 mergeTiles : List Tile -> List Tile
@@ -713,12 +877,12 @@ view model =
     { title = "Elm 2048"
     , body =
         [ div [ class "container" ]
-            [ gameHeader model
+            [ gameHeader model.gs
             , aboveGame
             , div [ class "game-container" ]
-                [ gameMessage model
+                [ gameMessage model.gs
                 , gridContainer
-                , tileContainer model.tiles
+                , tileContainer model.gs.tiles
                 ]
             , gameExplanation
             , divider
@@ -828,16 +992,16 @@ mergedTileClassStr t =
 --- view: above the game playing area
 
 
-gameHeader : Model -> Html Msg
-gameHeader model =
+gameHeader : GameState -> Html Msg
+gameHeader gs =
     div [ class "heading" ]
         [ h1 [ class "title" ]
             [ text "Elm 2048" ]
         , div [ class "scores-container" ]
             [ div [ class "score-container" ]
-                [ text <| String.fromInt <| model.score ]
+                [ text <| String.fromInt <| gs.score ]
             , div [ class "best-container" ]
-                [ text <| String.fromInt <| model.bestScore ]
+                [ text <| String.fromInt <| gs.bestScore ]
             ]
         ]
 
@@ -862,11 +1026,11 @@ aboveGame =
 --- view: over the game area -- displayed when game over or won
 
 
-gameMessage : Model -> Html Msg
-gameMessage model =
-    div [ class ("game-message" ++ gameStatusClassStr model) ]
+gameMessage : GameState -> Html Msg
+gameMessage gs =
+    div [ class ("game-message" ++ gameStatusClassStr gs) ]
         [ p []
-            [ text <| gameStatusMessage model ]
+            [ text <| gameStatusMessage gs ]
         , div [ class "lower" ]
             [ button
                 [ class "keep-playing-button"
@@ -882,9 +1046,9 @@ gameMessage model =
         ]
 
 
-gameStatusClassStr : Model -> String
-gameStatusClassStr m =
-    case m.gameStatus of
+gameStatusClassStr : GameState -> String
+gameStatusClassStr gs =
+    case gs.status of
         Playing ->
             ""
 
@@ -898,9 +1062,9 @@ gameStatusClassStr m =
             " game-won"
 
 
-gameStatusMessage : Model -> String
-gameStatusMessage m =
-    case m.gameStatus of
+gameStatusMessage : GameState -> String
+gameStatusMessage gs =
+    case gs.status of
         Playing ->
             ""
 

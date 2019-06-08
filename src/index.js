@@ -9,12 +9,6 @@ const getItem = () => JSON.parse(localStorage.getItem(storageKey));
 
 const setItem = (data) => localStorage.setItem(storageKey, JSON.stringify(data));
 
-const defaultGameState = { "bestScore": 0 };
-
-if (getItem() === null) {
-  setItem(defaultGameState)
-}
-
 const gameState = getItem();
 
 var app = Elm.Main.init({
