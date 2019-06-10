@@ -386,52 +386,52 @@ update msg model =
             )
 
         MoveUp ->
-            if statusPlaying model.gs then
+            if playingGame model.gs.status then
                 let
                     newGs =
                         updateGameState model.gs moveUp
                 in
                 ( { model | gs = newGs }
-                , newTileLaterIfTilesChanged newGs.tiles
+                , possibleNewTile newGs
                 )
 
             else
                 ( model, Cmd.none )
 
         MoveDown ->
-            if statusPlaying model.gs then
+            if playingGame model.gs.status then
                 let
                     newGs =
                         updateGameState model.gs moveDown
                 in
                 ( { model | gs = newGs }
-                , newTileLaterIfTilesChanged newGs.tiles
+                , possibleNewTile newGs
                 )
 
             else
                 ( model, Cmd.none )
 
         MoveLeft ->
-            if statusPlaying model.gs then
+            if playingGame model.gs.status then
                 let
                     newGs =
                         updateGameState model.gs moveLeft
                 in
                 ( { model | gs = newGs }
-                , newTileLaterIfTilesChanged newGs.tiles
+                , possibleNewTile newGs
                 )
 
             else
                 ( model, Cmd.none )
 
         MoveRight ->
-            if statusPlaying model.gs then
+            if playingGame model.gs.status then
                 let
                     newGs =
                         updateGameState model.gs moveRight
                 in
                 ( { model | gs = newGs }
-                , newTileLaterIfTilesChanged newGs.tiles
+                , possibleNewTile newGs
                 )
 
             else
@@ -457,12 +457,16 @@ update msg model =
 
 updateGameState : GameState -> (List Tile -> List Tile) -> GameState
 updateGameState gs func =
-    { gs | tiles = func gs.tiles }
+    let
+        newGs =
+            { gs | tiles = func gs.tiles }
+    in
+    { newGs | status = gameStatus newGs }
 
 
-statusPlaying : GameState -> Bool
-statusPlaying gs =
-    case gs.status of
+playingGame : Status -> Bool
+playingGame status =
+    case status of
         Playing ->
             True
 
@@ -475,6 +479,15 @@ statusPlaying gs =
 
 
 --- update: new tile helpers
+
+
+possibleNewTile : GameState -> Cmd Msg
+possibleNewTile gs =
+    if playingGame gs.status then
+        newTileLaterIfTilesChanged gs.tiles
+
+    else
+        saveGameState gs
 
 
 newTileLaterIfTilesChanged : List Tile -> Cmd Msg
