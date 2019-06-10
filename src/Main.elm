@@ -386,40 +386,56 @@ update msg model =
             )
 
         MoveUp ->
-            let
-                newGs =
-                    updateGameState model.gs moveUp
-            in
-            ( { model | gs = newGs }
-            , newTileLaterIfTilesChanged newGs.tiles
-            )
+            if statusPlaying model.gs then
+                let
+                    newGs =
+                        updateGameState model.gs moveUp
+                in
+                ( { model | gs = newGs }
+                , newTileLaterIfTilesChanged newGs.tiles
+                )
+
+            else
+                ( model, Cmd.none )
 
         MoveDown ->
-            let
-                newGs =
-                    updateGameState model.gs moveDown
-            in
-            ( { model | gs = newGs }
-            , newTileLaterIfTilesChanged newGs.tiles
-            )
+            if statusPlaying model.gs then
+                let
+                    newGs =
+                        updateGameState model.gs moveDown
+                in
+                ( { model | gs = newGs }
+                , newTileLaterIfTilesChanged newGs.tiles
+                )
+
+            else
+                ( model, Cmd.none )
 
         MoveLeft ->
-            let
-                newGs =
-                    updateGameState model.gs moveLeft
-            in
-            ( { model | gs = newGs }
-            , newTileLaterIfTilesChanged newGs.tiles
-            )
+            if statusPlaying model.gs then
+                let
+                    newGs =
+                        updateGameState model.gs moveLeft
+                in
+                ( { model | gs = newGs }
+                , newTileLaterIfTilesChanged newGs.tiles
+                )
+
+            else
+                ( model, Cmd.none )
 
         MoveRight ->
-            let
-                newGs =
-                    updateGameState model.gs moveRight
-            in
-            ( { model | gs = newGs }
-            , newTileLaterIfTilesChanged newGs.tiles
-            )
+            if statusPlaying model.gs then
+                let
+                    newGs =
+                        updateGameState model.gs moveRight
+                in
+                ( { model | gs = newGs }
+                , newTileLaterIfTilesChanged newGs.tiles
+                )
+
+            else
+                ( model, Cmd.none )
 
         LinkClicked urlRequest ->
             case urlRequest of
@@ -442,6 +458,19 @@ update msg model =
 updateGameState : GameState -> (List Tile -> List Tile) -> GameState
 updateGameState gs func =
     { gs | tiles = func gs.tiles }
+
+
+statusPlaying : GameState -> Bool
+statusPlaying gs =
+    case gs.status of
+        Playing ->
+            True
+
+        KeepPlaying ->
+            True
+
+        _ ->
+            False
 
 
 
