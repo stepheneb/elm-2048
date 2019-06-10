@@ -1,6 +1,5 @@
 port module Main exposing (main)
 
-import Array
 import Browser
 import Browser.Events as Events
 import Browser.Navigation as Nav
@@ -584,25 +583,25 @@ lessThenMax tiles =
 
 generateNewTile : List Tile -> Cmd Msg
 generateNewTile tiles =
+    let
+        locations =
+            sortTilesByRowsCols tiles
+                |> emptyLocations
+    in
     if lessThenMax tiles then
-        newTileInEmptyLocation tiles
+        case locations of
+            [] ->
+                Cmd.none
+
+            l :: ls ->
+                Random.generate AddTile (tileGenerator l ls)
 
     else
         Cmd.none
 
 
-newTileInEmptyLocation : List Tile -> Cmd Msg
-newTileInEmptyLocation tiles =
-    let
-        locationIndices =
-            sortTilesByRowsCols tiles
-                |> emptyLocationIndices
-    in
-    Random.generate AddTile (tileGenerator locationIndices)
-
-
-tileGenerator : Array.Array Int -> Random.Generator Tile
-tileGenerator locationIndices =
+tileGenerator : Int -> List Int -> Random.Generator Tile
+tileGenerator firstLocation restOfLocations =
     let
         valueFrom num =
             if num > 0.9 then
@@ -612,13 +611,29 @@ tileGenerator locationIndices =
                 2
     in
     Random.map2
-        (\indx num ->
-            Array.get (indx - 1) locationIndices
-                |> Maybe.withDefault 1
-                |> tileAtLocationIndex (valueFrom num)
+        (\locIndex num ->
+            tileAtLocationIndex (valueFrom num) locIndex
         )
-        (Random.int 1 (Array.length locationIndices))
+        (Random.uniform firstLocation restOfLocations)
         (Random.float 0 1)
+
+
+emptyLocations : List Tile -> List Int
+emptyLocations tiles =
+    let
+        allIndicesSet =
+            Set.fromList <| List.range 1 maxTiles
+
+        placedIndicesSet =
+            List.map .locIndex tiles
+                |> Set.fromList
+    in
+    if List.isEmpty tiles then
+        List.range 1 maxTiles
+
+    else
+        Set.diff allIndicesSet placedIndicesSet
+            |> Set.toList
 
 
 tileAtLocationIndex : Int -> Int -> Tile
@@ -632,38 +647,6 @@ tileAtLocationIndex value indx =
     , moved = False
     , key = 0
     }
-
-
-emptyLocationIndices : List Tile -> Array.Array Int
-emptyLocationIndices tiles =
-    let
-        allIndicesSet =
-            Set.fromList <| List.range 1 16
-
-        placedIndicesSet =
-            List.map .locIndex tiles
-                |> Set.fromList
-    in
-    if List.isEmpty tiles then
-        allIndicesSet
-            |> Set.toList
-            |> Array.fromList
-
-    else
-        Set.diff allIndicesSet placedIndicesSet
-            |> Set.toList
-            |> Array.fromList
-
-
-
-
-
-
-
-
-
-
-
 
 
 
