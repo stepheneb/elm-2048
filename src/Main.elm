@@ -4,9 +4,9 @@ import Array
 import Browser
 import Browser.Events as Events
 import Browser.Navigation as Nav
-import Html exposing (Html, a, button, div, form, h1, hr, img, p, strong, text)
+import Html exposing (Html, a, button, div, h1, hr, img, p, strong, text)
 import Html.Attributes exposing (class, href, id, src, target)
-import Html.Events exposing (custom, on, onClick)
+import Html.Events exposing (onClick)
 import Html.Keyed as Keyed
 import Html.Lazy exposing (lazy)
 import Json.Decode as Decode
@@ -32,24 +32,6 @@ main =
         , onUrlChange = UrlChanged
         , onUrlRequest = LinkClicked
         }
-
-
-init : Decode.Value -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
-init flags url navKey =
-    let
-        model =
-            initialModel flags url navKey
-    in
-    ( model, startGame model )
-
-
-startGame : Model -> Cmd Msg
-startGame model =
-    if List.length model.gs.tiles < 2 then
-        generateNewTile model.gs.tiles
-
-    else
-        Cmd.none
 
 
 
@@ -96,6 +78,19 @@ maxTiles =
     16
 
 
+
+---- APPLICATION STARTUP ----
+
+
+init : Decode.Value -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
+init flags url navKey =
+    let
+        model =
+            initialModel flags url navKey
+    in
+    ( model, startGame model )
+
+
 initialModel : Decode.Value -> Url.Url -> Nav.Key -> Model
 initialModel flags url navKey =
     { url = url
@@ -104,9 +99,22 @@ initialModel flags url navKey =
     }
 
 
+startGame : Model -> Cmd Msg
+startGame model =
+    if lessThenTwo model.gs.tiles then
+        generateNewTile model.gs.tiles
 
---- Decoding saved GameState
---- Parsing JSON GameState loaded through flags
+    else
+        Cmd.none
+
+
+lessThenTwo : List a -> Bool
+lessThenTwo a =
+    List.length a < 2
+
+
+
+--- application startup: load saved GameState via flags or generate default GameState
 
 
 parseGameState : Decode.Value -> GameState
@@ -129,8 +137,17 @@ defaultGameState =
     }
 
 
+newGameState : GameState -> GameState
+newGameState gs =
+    let
+        newGs =
+            defaultGameState
+    in
+    { newGs | bestScore = gs.bestScore }
 
---- Decoding JSON GameState
+
+
+--- application startup: decode JSON GameState
 
 
 decodeGameState : Decode.Value -> Result Decode.Error GameState
@@ -202,7 +219,7 @@ fromResult result =
 
 
 
---- PORTS
+---- PORTS ----
 --- incoming: touch swipe events turned into <arrow-key> Strings
 
 
@@ -210,7 +227,7 @@ port swipeDirectionArrow : (String -> msg) -> Sub msg
 
 
 
---- outgoing: GameState
+--- outgoing: cache GameState in localStorage
 
 
 port cacheGameState : Encode.Value -> Cmd msg
@@ -219,6 +236,10 @@ port cacheGameState : Encode.Value -> Cmd msg
 saveGameState : GameState -> Cmd Msg
 saveGameState gs =
     cacheGameState (gameStateEncoder gs)
+
+
+
+--- outgoing: encode GameState into JSON
 
 
 gameStateEncoder : GameState -> Encode.Value
@@ -272,7 +293,7 @@ tileEncoder tile =
 
 
 
---- SUBSCRIPTIONS
+---- SUBSCRIPTIONS ----
 
 
 subscriptions : Model -> Sub Msg
@@ -314,7 +335,7 @@ toDirectionMsg str =
 type Msg
     = NoOp
     | NewGame
-    | NewTile
+    | GenerateNewTile
     | AddTile Tile
     | KeepGoing
     | MoveUp
@@ -327,46 +348,36 @@ type Msg
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
+    let
+        gs =
+            model.gs
+    in
     case msg of
         NoOp ->
             ( model, Cmd.none )
 
         NewGame ->
             let
-                gs =
-                    model.gs
-
                 newGs =
-                    { gs
-                        | tiles = []
-                        , score = 0
-                        , nextTileKey = 1
-                        , status = Playing
-                    }
+                    newGameState gs
             in
             ( { model | gs = newGs }
             , generateNewTile newGs.tiles
             )
 
-        NewTile ->
+        GenerateNewTile ->
             ( model
-            , generateNewTile model.gs.tiles
+            , generateNewTile gs.tiles
             )
 
         AddTile tile ->
             let
-                gs =
-                    model.gs
-
                 newGs =
-                    updateScoresAndGameStatus
-                        { gs
-                            | nextTileKey = gs.nextTileKey + 1
-                            , tiles = addTile tile gs |> sortTilesByRowsCols
-                        }
+                    addTile gs tile
+                        |> updateScoresAndGameStatus
             in
             ( { model | gs = newGs }
-            , if List.length newGs.tiles < 2 then
+            , if lessThenTwo newGs.tiles then
                 generateNewTile newGs.tiles
 
               else
@@ -375,9 +386,6 @@ update msg model =
 
         KeepGoing ->
             let
-                gs =
-                    model.gs
-
                 newGs =
                     { gs | status = KeepPlaying }
             in
@@ -386,56 +394,16 @@ update msg model =
             )
 
         MoveUp ->
-            if playingGame model.gs.status then
-                let
-                    newGs =
-                        updateGameState model.gs moveUp
-                in
-                ( { model | gs = newGs }
-                , possibleNewTile newGs
-                )
-
-            else
-                ( model, Cmd.none )
+            updateWithMove model moveUp
 
         MoveDown ->
-            if playingGame model.gs.status then
-                let
-                    newGs =
-                        updateGameState model.gs moveDown
-                in
-                ( { model | gs = newGs }
-                , possibleNewTile newGs
-                )
-
-            else
-                ( model, Cmd.none )
+            updateWithMove model moveDown
 
         MoveLeft ->
-            if playingGame model.gs.status then
-                let
-                    newGs =
-                        updateGameState model.gs moveLeft
-                in
-                ( { model | gs = newGs }
-                , possibleNewTile newGs
-                )
-
-            else
-                ( model, Cmd.none )
+            updateWithMove model moveLeft
 
         MoveRight ->
-            if playingGame model.gs.status then
-                let
-                    newGs =
-                        updateGameState model.gs moveRight
-                in
-                ( { model | gs = newGs }
-                , possibleNewTile newGs
-                )
-
-            else
-                ( model, Cmd.none )
+            updateWithMove model moveRight
 
         LinkClicked urlRequest ->
             case urlRequest of
@@ -452,29 +420,39 @@ update msg model =
 
 
 
---- update: move tiles helper
+--- update: move tiles helpers
+
+
+updateWithMove : Model -> (List Tile -> List Tile) -> ( Model, Cmd Msg )
+updateWithMove model move =
+    let
+        playing =
+            userIsPlaying model.gs.status
+
+        newGs =
+            updateGameState model.gs move
+    in
+    if playing then
+        ( { model | gs = newGs }
+        , possibleNewTile newGs
+        )
+
+    else
+        ( model, Cmd.none )
 
 
 updateGameState : GameState -> (List Tile -> List Tile) -> GameState
 updateGameState gs func =
     let
         newGs =
-            { gs | tiles = func gs.tiles }
+            { gs
+                | tiles =
+                    changeTiles (notMerged >> notMoved) gs.tiles
+                        |> func
+                        |> sortTilesByRowsCols
+            }
     in
     { newGs | status = gameStatus newGs }
-
-
-playingGame : Status -> Bool
-playingGame status =
-    case status of
-        Playing ->
-            True
-
-        KeepPlaying ->
-            True
-
-        _ ->
-            False
 
 
 
@@ -483,30 +461,33 @@ playingGame status =
 
 possibleNewTile : GameState -> Cmd Msg
 possibleNewTile gs =
-    if playingGame gs.status then
-        newTileLaterIfTilesChanged gs.tiles
+    let
+        changed =
+            List.any (\t -> t.moved || t.merged) gs.tiles
+    in
+    if userIsPlaying gs.status then
+        if changed then
+            Process.sleep 100 |> Task.perform (always GenerateNewTile)
+
+        else
+            Cmd.none
 
     else
         saveGameState gs
 
 
-newTileLaterIfTilesChanged : List Tile -> Cmd Msg
-newTileLaterIfTilesChanged tiles =
+addTile : GameState -> Tile -> GameState
+addTile gs tile =
     let
-        changed =
-            List.any (\t -> t.moved || t.merged) tiles
+        newGs =
+            { gs | nextTileKey = gs.nextTileKey + 1 }
+
+        newTiles =
+            { tile | key = gs.nextTileKey }
+                :: changeTiles (notNew >> notMoved) newGs.tiles
+                |> sortTilesByRowsCols
     in
-    if changed then
-        Process.sleep 100 |> Task.perform (always NewTile)
-
-    else
-        Cmd.none
-
-
-addTile : Tile -> GameState -> List Tile
-addTile tile gs =
-    { tile | key = gs.nextTileKey }
-        :: changeTiles (notNew >> notMoved) gs.tiles
+    { newGs | tiles = newTiles }
 
 
 
@@ -521,14 +502,27 @@ updateScoresAndGameStatus gs =
                 |> List.map .value
                 |> List.foldl (+) 0
 
-        score =
+        newScore =
             gs.score + lastMoveScore
     in
     { gs
-        | score = score
-        , bestScore = max score gs.bestScore
+        | score = newScore
+        , bestScore = max newScore gs.bestScore
         , status = gameStatus gs
     }
+
+
+userIsPlaying : Status -> Bool
+userIsPlaying status =
+    case status of
+        Playing ->
+            True
+
+        KeepPlaying ->
+            True
+
+        _ ->
+            False
 
 
 gameStatus : GameState -> Status
@@ -591,33 +585,44 @@ lessThenMax tiles =
 generateNewTile : List Tile -> Cmd Msg
 generateNewTile tiles =
     if lessThenMax tiles then
-        sortTilesByRowsCols tiles
-            |> emptyLocationIndices
-            |> newTileInEmptyLocation
+        newTileInEmptyLocation tiles
 
     else
         Cmd.none
 
 
-newTileInEmptyLocation : Array.Array Int -> Cmd Msg
-newTileInEmptyLocation locationIndices =
+newTileInEmptyLocation : List Tile -> Cmd Msg
+newTileInEmptyLocation tiles =
+    let
+        locationIndices =
+            sortTilesByRowsCols tiles
+                |> emptyLocationIndices
+    in
     Random.generate AddTile (tileGenerator locationIndices)
 
 
 tileGenerator : Array.Array Int -> Random.Generator Tile
 tileGenerator locationIndices =
+    let
+        valueFrom num =
+            if num > 0.9 then
+                4
+
+            else
+                2
+    in
     Random.map2
         (\indx num ->
             Array.get (indx - 1) locationIndices
                 |> Maybe.withDefault 1
-                |> tileFromLocationIndex (valueFrom num)
+                |> tileAtLocationIndex (valueFrom num)
         )
         (Random.int 1 (Array.length locationIndices))
         (Random.float 0 1)
 
 
-tileFromLocationIndex : Int -> Int -> Tile
-tileFromLocationIndex value indx =
+tileAtLocationIndex : Int -> Int -> Tile
+tileAtLocationIndex value indx =
     { value = value
     , row = (indx - 1) // 4 + 1
     , col = remainderBy 4 (indx - 1) + 1
@@ -629,65 +634,36 @@ tileFromLocationIndex value indx =
     }
 
 
-valueFrom : Float -> Int
-valueFrom num =
-    if num > 0.9 then
-        4
-
-    else
-        2
-
-
-
---- update: helpers for finding empty locations for new tiles
-
-
 emptyLocationIndices : List Tile -> Array.Array Int
 emptyLocationIndices tiles =
+    let
+        allIndicesSet =
+            Set.fromList <| List.range 1 16
+
+        placedIndicesSet =
+            List.map .locIndex tiles
+                |> Set.fromList
+    in
     if List.isEmpty tiles then
         allIndicesSet
             |> Set.toList
             |> Array.fromList
 
     else
-        Set.diff allIndicesSet (placedIndicesSet tiles)
+        Set.diff allIndicesSet placedIndicesSet
             |> Set.toList
             |> Array.fromList
 
 
-placedIndicesSet : List Tile -> Set.Set Int
-placedIndicesSet tiles =
-    List.map .locIndex tiles
-        |> Set.fromList
-
-
-allIndicesSet : Set.Set Int
-allIndicesSet =
-    Set.fromList <| List.range 1 16
 
 
 
---- update: tile movement
 
 
-changeTiles : (Tile -> Tile) -> List Tile -> List Tile
-changeTiles func tiles =
-    List.map func tiles
 
 
-notNew : Tile -> Tile
-notNew tile =
-    { tile | new = False }
 
 
-notMerged : Tile -> Tile
-notMerged tile =
-    { tile | merged = False }
-
-
-notMoved : Tile -> Tile
-notMoved tile =
-    { tile | moved = False }
 
 
 
@@ -697,73 +673,65 @@ notMoved tile =
 moveUp : List Tile -> List Tile
 moveUp tiles =
     let
-        squashUp tilelist =
+        squashUp ts =
             List.map2
                 (\t r -> maybeMoveTile t t.col r)
-                tilelist
+                ts
                 (List.range 1 4)
     in
-    changeTiles (notMerged >> notMoved) tiles
-        |> tilesInColumns Normal
+    tilesInColumns Normal tiles
         |> List.map squashUp
         |> List.map mergeTiles
         |> List.map squashUp
         |> List.concat
-        |> sortTilesByRowsCols
 
 
 moveDown : List Tile -> List Tile
 moveDown tiles =
     let
-        squashDown tilelist =
+        squashDown ts =
             List.map2
                 (\t r -> maybeMoveTile t t.col r)
-                tilelist
+                ts
                 (List.reverse <| List.range 1 4)
     in
-    changeTiles (notMerged >> notMoved) tiles
-        |> tilesInColumns Reversed
+    tilesInColumns Reversed tiles
         |> List.map squashDown
         |> List.map mergeTiles
         |> List.map squashDown
         |> List.concat
-        |> sortTilesByRowsCols
 
 
 moveLeft : List Tile -> List Tile
 moveLeft tiles =
     let
-        squashLeft tilelist =
+        squashLeft ts =
             List.map2
                 (\t c -> maybeMoveTile t c t.row)
-                tilelist
+                ts
                 (List.range 1 4)
     in
-    changeTiles (notMerged >> notMoved) tiles
-        |> tilesInRows Normal
+    tilesInRows Normal tiles
         |> List.map squashLeft
         |> List.map mergeTiles
         |> List.map squashLeft
         |> List.concat
-        |> sortTilesByRowsCols
 
 
 moveRight : List Tile -> List Tile
 moveRight tiles =
     let
-        squashRight tilelist =
+        squashRight ts =
             List.map2
                 (\t c -> maybeMoveTile t c t.row)
-                tilelist
+                ts
                 (List.reverse <| List.range 1 4)
     in
-    changeTiles (notMerged >> notMoved) tiles
-        |> tilesInRows Reversed
+    tilesInRows Reversed tiles
         |> List.map squashRight
         |> List.map mergeTiles
         |> List.map squashRight
         |> List.concat
-        |> sortTilesByRowsCols
 
 
 maybeMoveTile : Tile -> Int -> Int -> Tile
@@ -805,8 +773,7 @@ mergeTilesHelp checked t1 t2 rest =
 
         [ t3 ] ->
             if t1.value == t2.value then
-                List.reverse
-                    (t3 :: merge t2 :: checked)
+                List.reverse (t3 :: merge t2 :: checked)
 
             else
                 mergeTilesHelp (t1 :: checked) t2 t3 []
@@ -820,7 +787,31 @@ mergeTilesHelp checked t1 t2 rest =
 
 
 
---- update: sorting tiles into lists of columns or rows
+--- update: tile change helpers
+
+
+changeTiles : (Tile -> Tile) -> List Tile -> List Tile
+changeTiles func tiles =
+    List.map func tiles
+
+
+notNew : Tile -> Tile
+notNew tile =
+    { tile | new = False }
+
+
+notMerged : Tile -> Tile
+notMerged tile =
+    { tile | merged = False }
+
+
+notMoved : Tile -> Tile
+notMoved tile =
+    { tile | moved = False }
+
+
+
+--- update: sort tiles into lists of columns or rows
 
 
 type SortDirection
@@ -1084,7 +1075,7 @@ aboveGame =
 
 
 
---- view: over the game area -- displayed when game over or won
+--- view: over the game area (only displayed when game over or won)
 
 
 gameMessage : GameState -> Html Msg
@@ -1165,13 +1156,13 @@ gameNotes =
             [ text "Note: " ]
         , text "This is not the official version of 2048! It is an "
         , text "implementation of Gabriele Cirulli's "
-        , a [ href "https://github.com/gabrielecirulli/2048" ]
+        , a [ href "https://github.com/gabrielecirulli/2048", target "_blank" ]
             [ text "2048 game " ]
         , text "written in "
         , a [ href "https://elm-lang.org/" ]
             [ text "Elm" ]
         , text ". You can find the code for this Elm implementation here: "
-        , a [ href "https://github.com/stepheneb/elm-2048" ]
+        , a [ href "https://github.com/stepheneb/elm-2048", target "_blank" ]
             [ text "github.com/stepheneb/elm-2048" ]
         , text "."
         ]
@@ -1194,5 +1185,4 @@ gameFooter =
 
 divider : Html none
 divider =
-    hr []
-        []
+    hr [] []
