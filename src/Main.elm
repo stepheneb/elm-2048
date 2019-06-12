@@ -224,10 +224,10 @@ fromResult result =
 
 
 ---- PORTS ----
---- incoming: touch swipe events turned into <arrow-key> Strings
+--- incoming: touch swipe events as { key: <arrow-key-str> objects.
 
 
-port swipeDirectionArrow : (String -> msg) -> Sub msg
+port swipeDirectionArrow : (Encode.Value -> msg) -> Sub msg
 
 
 
@@ -303,33 +303,54 @@ tileEncoder tile =
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
-        [ Events.onKeyDown keyDecoder
-        , swipeDirectionArrow toDirectionMsg
+        [ Events.onKeyDown keyDecoderToMoveMsg
+        , swipeDirectionArrow handleSwipe
         ]
 
 
-keyDecoder : Decode.Decoder Msg
-keyDecoder =
-    Decode.map toDirectionMsg (Decode.field "key" Decode.string)
+type Direction
+    = Up
+    | Down
+    | Left
+    | Right
 
 
-toDirectionMsg : String -> Msg
-toDirectionMsg str =
-    case str of
-        "ArrowUp" ->
-            MoveUp
+handleSwipe : Encode.Value -> Msg
+handleSwipe value =
+    case Decode.decodeValue directionDecoder value of
+        Ok maybeDirection ->
+            Move maybeDirection
 
-        "ArrowDown" ->
-            MoveDown
+        Err _ ->
+            Move Nothing
 
-        "ArrowRight" ->
-            MoveRight
 
-        "ArrowLeft" ->
-            MoveLeft
+keyDecoderToMoveMsg : Decode.Decoder Msg
+keyDecoderToMoveMsg =
+    Decode.map Move directionDecoder
 
-        _ ->
-            NoOp
+
+directionDecoder : Decode.Decoder (Maybe Direction)
+directionDecoder =
+    Decode.andThen
+        (\str ->
+            case str of
+                "ArrowUp" ->
+                    Decode.succeed (Just Up)
+
+                "ArrowDown" ->
+                    Decode.succeed (Just Down)
+
+                "ArrowRight" ->
+                    Decode.succeed (Just Right)
+
+                "ArrowLeft" ->
+                    Decode.succeed (Just Left)
+
+                _ ->
+                    Decode.succeed Nothing
+        )
+        (Decode.field "key" Decode.string)
 
 
 
@@ -337,15 +358,11 @@ toDirectionMsg str =
 
 
 type Msg
-    = NoOp
-    | NewGame
+    = NewGame
     | GenerateNewTile
     | AddTile Tile
     | KeepGoing
-    | MoveUp
-    | MoveDown
-    | MoveRight
-    | MoveLeft
+    | Move (Maybe Direction)
     | LinkClicked Browser.UrlRequest
     | UrlChanged Url.Url
 
@@ -357,9 +374,6 @@ update msg model =
             model.gs
     in
     case msg of
-        NoOp ->
-            ( model, Cmd.none )
-
         NewGame ->
             let
                 newGs =
@@ -397,17 +411,13 @@ update msg model =
             , saveGameState newGs
             )
 
-        MoveUp ->
-            updateWithMove model moveUp
+        Move maybeDirection ->
+            case maybeDirection of
+                Just direction ->
+                    updateWithMove model direction
 
-        MoveDown ->
-            updateWithMove model moveDown
-
-        MoveLeft ->
-            updateWithMove model moveLeft
-
-        MoveRight ->
-            updateWithMove model moveRight
+                Nothing ->
+                    ( model, Cmd.none )
 
         LinkClicked urlRequest ->
             case urlRequest of
@@ -427,11 +437,25 @@ update msg model =
 --- update: move tiles helpers
 
 
-updateWithMove : Model -> (List Tile -> List Tile) -> ( Model, Cmd Msg )
-updateWithMove model move =
+updateWithMove : Model -> Direction -> ( Model, Cmd Msg )
+updateWithMove model direction =
     let
         playing =
             userIsPlaying model.gs.status
+
+        move =
+            case direction of
+                Up ->
+                    moveUp
+
+                Down ->
+                    moveDown
+
+                Left ->
+                    moveLeft
+
+                Right ->
+                    moveRight
 
         newGs =
             updateGameState model.gs move
