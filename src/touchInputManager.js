@@ -71,8 +71,10 @@ TouchInputManager.prototype.listen = function () {
     var absDy = Math.abs(dy);
 
     if (Math.max(absDx, absDy) > 10) {
-      var direction = absDx > absDy ? (dx > 0 ? "ArrowRight" : "ArrowLeft") : (dy > 0 ? "ArrowDown" : "ArrowUp");
-      self.app.ports.swipeDirectionArrow.send(direction);
+      var direction = absDx > absDy ?
+        (dx > 0 ? "ArrowRight" : "ArrowLeft") :
+        (dy > 0 ? "ArrowDown" : "ArrowUp");
+      self.app.ports.swipeDirectionArrow.send({ key: direction });
 
     }
   });
