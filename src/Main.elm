@@ -72,6 +72,11 @@ type alias Tile =
     }
 
 
+winningTileValue : Int
+winningTileValue =
+    2048
+
+
 maxTiles : Int
 maxTiles =
     16
@@ -530,12 +535,12 @@ gameStatus gs =
         gridFull =
             List.length gs.tiles == maxTiles
 
-        any2048Tile =
-            List.any (.value >> (==) 2048) gs.tiles
+        anyWinningTile =
+            List.any (.value >> (==) winningTileValue) gs.tiles
     in
     case gs.status of
         Playing ->
-            if any2048Tile then
+            if anyWinningTile then
                 Won
 
             else if gridFull then
@@ -1015,7 +1020,7 @@ mergedTileClassStr t =
 
 superTileClassStr : Tile -> String
 superTileClassStr t =
-    case t.value > 2048 of
+    case t.value > winningTileValue of
         True ->
             " tile-super "
 
