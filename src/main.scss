@@ -533,13 +533,13 @@ hr {
 
 @include smaller($mobile-threshold) {
   // Redefine variables for smaller screens
-  $field-width: 280px;
-  $grid-spacing: 10px;
-  $grid-row-cells: 4;
+  $field-width: 280px !global;
+  $grid-spacing: 10px !global;
+  $grid-row-cells: 4 !global;
   $tile-size: ($field-width - $grid-spacing * ($grid-row-cells + 1)) /
-    $grid-row-cells;
-  $tile-border-radius: 3px;
-  $game-container-margin-top: 17px;
+    $grid-row-cells !global;
+  $tile-border-radius: 3px !global;
+  $game-container-margin-top: 17px !global;
 
   html,
   body {
@@ -551,8 +551,12 @@ hr {
     padding: 0 0px;
   }
 
+  hr {
+    margin: 10px 0px;
+  }
+
   h1.title {
-    font-size: 27px;
+    font-size: 26px;
     margin-top: 15px;
   }
 
@@ -566,10 +570,23 @@ hr {
     margin-top: 0;
     padding: 15px 10px;
     min-width: 40px;
+    font-size: 20px;
   }
 
   .heading {
+    width: $field-width;
     margin-bottom: 10px;
+  }
+
+  .above-game {
+    @include clearfix;
+    width: $field-width;
+  }
+
+  .game-explanation {
+    margin-top: 10px;
+    font-size: 75%;
+    width: $field-width;
   }
 
   // Show intro and restart button side by side
@@ -593,7 +610,7 @@ hr {
 
   // Rest of the font-size adjustments in the tile class
   .tile .tile-inner {
-    font-size: 35px;
+    font-size: 30px;
   }
 
   .game-message {
