@@ -1,7 +1,7 @@
 {
   "main.css": "/elm-2048/static/css/main.6ad822cf.chunk.css",
-  "main.js": "/elm-2048/static/js/main.baedbc54.chunk.js",
-  "main.js.map": "/elm-2048/static/js/main.baedbc54.chunk.js.map",
+  "main.js": "/elm-2048/static/js/main.81c1e22a.chunk.js",
+  "main.js.map": "/elm-2048/static/js/main.81c1e22a.chunk.js.map",
   "runtime~main.js": "/elm-2048/static/js/runtime~main.d5fa866e.js",
   "runtime~main.js.map": "/elm-2048/static/js/runtime~main.d5fa866e.js.map",
   "vendors~main.js": "/elm-2048/static/js/vendors~main.b17b319b.chunk.js",
@@ -10,6 +10,6 @@
   "favicon.ico": "/elm-2048/favicon.ico",
   "index.html": "/elm-2048/index.html",
   "manifest.json": "/elm-2048/manifest.json",
-  "precache-manifest.8915d81244f836c66bbf5ae37d85935d.js": "/elm-2048/precache-manifest.8915d81244f836c66bbf5ae37d85935d.js",
+  "precache-manifest.aac4bf075df6e65c92b910954d026e85.js": "/elm-2048/precache-manifest.aac4bf075df6e65c92b910954d026e85.js",
   "static/media/main.css": "/elm-2048/static/media/ClearSans-Regular-webfont.d0471d34.svg"
 }
