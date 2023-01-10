@@ -942,6 +942,8 @@ view model =
             , divider
             , gameNotes
             , divider
+            , gameBugs
+            , divider
             , gameFooter
             ]
         ]
@@ -1176,6 +1178,17 @@ gameNotes =
         , text ". You can find the code for this Elm implementation here: "
         , a [ href "https://github.com/stepheneb/elm-2048", target "_blank" ]
             [ text "github.com/stepheneb/elm-2048" ]
+        , text ". "
+        ]
+
+gameBugs : Html none
+gameBugs =
+    p [ class "game-explanation" ]
+        [ strong [ class "important" ]
+            [ text "Bugs: " ]
+        , text "iOS Safari: "
+        , a [ href "https://github.com/stepheneb/elm-2048/issues/12", target "_blank" ]
+            [ text "Keep going and Try again buttons not working in Safari on iOS 16" ]
         , text "."
         ]
 
