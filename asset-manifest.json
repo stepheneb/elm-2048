@@ -1,12 +1,15 @@
 {
-  "main.css": "/elm-2048/static/css/main.637903c3.chunk.css",
-  "main.js": "/elm-2048/static/js/main.7955e543.chunk.js",
-  "main.css.map": "/elm-2048/static/css/main.637903c3.chunk.css.map",
-  "main.js.map": "/elm-2048/static/js/main.7955e543.chunk.js.map",
-  "runtime~main.js": "/elm-2048/static/js/runtime~main.f1632f6e.js",
-  "runtime~main.js.map": "/elm-2048/static/js/runtime~main.f1632f6e.js.map",
-  "vendors~main.js": "/elm-2048/static/js/vendors~main.3ca81432.chunk.js",
-  "vendors~main.js.map": "/elm-2048/static/js/vendors~main.3ca81432.chunk.js.map",
+  "main.css": "/elm-2048/static/css/main.6ad822cf.chunk.css",
+  "main.js": "/elm-2048/static/js/main.baedbc54.chunk.js",
+  "main.js.map": "/elm-2048/static/js/main.baedbc54.chunk.js.map",
+  "runtime~main.js": "/elm-2048/static/js/runtime~main.d5fa866e.js",
+  "runtime~main.js.map": "/elm-2048/static/js/runtime~main.d5fa866e.js.map",
+  "vendors~main.js": "/elm-2048/static/js/vendors~main.b17b319b.chunk.js",
+  "vendors~main.js.map": "/elm-2048/static/js/vendors~main.b17b319b.chunk.js.map",
+  "./service-worker.js": "/elm-2048/./service-worker.js",
+  "favicon.ico": "/elm-2048/favicon.ico",
   "index.html": "/elm-2048/index.html",
-  "static/media/main.css": "/elm-2048/static/media/ClearSans-Regular-webfont.207557cd.eot"
+  "manifest.json": "/elm-2048/manifest.json",
+  "precache-manifest.8915d81244f836c66bbf5ae37d85935d.js": "/elm-2048/precache-manifest.8915d81244f836c66bbf5ae37d85935d.js",
+  "static/media/main.css": "/elm-2048/static/media/ClearSans-Regular-webfont.d0471d34.svg"
 }
