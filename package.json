@@ -7,18 +7,18 @@
   "author": "Stephen Bannasch",
   "license": "MIT",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build-css": "node-sass-chokidar src/ -o src/",
-    "watch-css": "npm run build-css && node-sass-chokidar src/ -o src/ --watch --recursive",
+    "start": "npm run build-css && elm-app start",
+    "build-css": "sass src/main.scss src/main.css",
+    "watch-css": "sass --watch src/main.scss src/main.css",
     "build": "npm run build-css && elm-app build",
     "deploy": "gh-pages -d build",
-    "build-deploy": "npm run build && npm run deploy"
-  },
-  "dependencies": {
-    "node-sass-chokidar": "^1.3.5"
+    "build-deploy": "npm run build && npm run deploy",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "devDependencies": {
-    "elm": "^0.19.1-3",
+    "elm": "^0.19.1-5",
+    "create-elm-app": "^5.22.0",
+    "sass": "^1.57.1",
     "gh-pages": "^2.2.0"
   }
 }

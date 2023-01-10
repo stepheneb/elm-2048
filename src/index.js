@@ -1,3 +1,5 @@
+/*jshint esversion: 6 */
+
 import './main.css';
 import { Elm } from './Main.elm';
 import registerServiceWorker from './registerServiceWorker';
@@ -26,6 +28,6 @@ touchInputManager(app);
 
 window.addEventListener("keydown", event => {
   if (event.key.includes("Arrow")) {
-    event.preventDefault()
+    event.preventDefault();
   }
-})
+});

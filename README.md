@@ -27,25 +27,27 @@ This project is bootstrapped with [Create Elm App](https://github.com/halfzebra/
 
 Build dependencies:
 
-- [nvm](https://github.com/nvm-sh/nvm) and node 10.15.3 installed
+- [nvm](https://github.com/nvm-sh/nvm)
 - [yarn](https://yarnpkg.com) (or just npm)
 
 To build locally:
 
 ```
-$ git clone https://github.com/stepheneb/elm-2048
-$ cd elm-2048
-$ nvm use
-$ yarn
-$ yarn build-css
-$ elm-app start
+% git clone https://github.com/stepheneb/elm-2048
+% cd elm-2048
+% nvm use
+% yarn
+% yarn build-css
+% yarn start
 ```
 
-Local development: open two shells and run:
+Local development run:
 
 ```
-$ elm-app start
+% yarn start
 ```
+
+If you are also changing the `scss` styles open a second shell and run:
 
 ```
 $ yarn watch-css
@@ -54,5 +56,5 @@ $ yarn watch-css
 Deploy to Github Pages:
 
 ```
-$ yarn run build-deploy
+% yarn build-deploy
 ```
