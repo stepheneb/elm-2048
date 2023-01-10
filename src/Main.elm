@@ -1026,32 +1026,29 @@ tileClassStr t =
 
 newTileClassStr : Tile -> String
 newTileClassStr t =
-    case t.new of
-        True ->
-            " tile-new "
+    if t.new then
+        " tile-new "
 
-        False ->
-            ""
+    else
+        ""
 
 
 mergedTileClassStr : Tile -> String
 mergedTileClassStr t =
-    case t.merged of
-        True ->
-            " tile-merged "
+    if t.merged then
+        " tile-merged "
 
-        False ->
-            ""
+    else
+        ""
 
 
 superTileClassStr : Tile -> String
 superTileClassStr t =
-    case t.value > winningTileValue of
-        True ->
-            " tile-super "
+    if t.value > winningTileValue then
+        " tile-super "
 
-        False ->
-            ""
+    else
+        ""
 
 
 
@@ -1180,6 +1177,7 @@ gameNotes =
             [ text "github.com/stepheneb/elm-2048" ]
         , text ". "
         ]
+
 
 gameBugs : Html none
 gameBugs =
