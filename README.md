@@ -8,6 +8,9 @@ MIT License
 
 I wrote this to learn more about Elm.
 
+Jordane Grenat added features to my 2048 elm
+and made a YouTube video: https://youtu.be/XFN9DLtOOcs
+
 Possibly helpful/useful/interesting features:
 
 1. Save game state to local storage.
